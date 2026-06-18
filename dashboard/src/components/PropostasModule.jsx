@@ -7,15 +7,20 @@ import {
   FUNDING_SOURCE_OPTIONS,
   PROJECT_AREA_OPTIONS,
   PROJECT_STATUS_OPTIONS,
+  TEAM_LINK_OPTIONS,
+  TEAM_ROLE_OPTIONS,
   UNIT_OPTIONS,
+  buildAnuenciaMarkdown,
   buildProjectMarkdown,
   createBudgetItem,
   createEmptyProposal,
+  createTeamMember,
   getBudgetSummary,
   getBudgetTotal,
   getDossierCompletion,
   normalizeBudgetItem,
   normalizeProposal,
+  normalizeTeamMember,
 } from '../data/projectModel';
 
 const WIZARD_STEPS = [
@@ -23,6 +28,7 @@ const WIZARD_STEPS = [
   { id: 'objetivos', label: 'Objetivos' },
   { id: 'justificativa', label: 'Justificativa' },
   { id: 'metodologia', label: 'Metodologia' },
+  { id: 'equipe', label: 'Equipe' },
   { id: 'cronograma', label: 'Cronograma' },
   { id: 'orcamento', label: 'Financeiro' },
 ];
@@ -59,6 +65,7 @@ export default function PropostasModule({
   const edital = editais.find(item => item.id === proposalId) || { titulo: 'Nenhum edital selecionado' };
   const [documentContent, setDocumentContent] = React.useState('');
   const [savedAt, setSavedAt] = React.useState('');
+  const [anuenciaMemberId, setAnuenciaMemberId] = React.useState(null);
 
   const completion = getDossierCompletion(activeProposal);
   const budgetTotal = getBudgetTotal(activeProposal.budget);
@@ -220,6 +227,35 @@ export default function PropostasModule({
     if (changedItem && (field === 'inicio' || field === 'fim')) validateDates(changedItem);
   };
 
+  const handleAddTeamMember = () => {
+    updateProposal(current => ({
+      ...current,
+      team: [...current.team, createTeamMember(Date.now())],
+    }));
+  };
+
+  const handleDeleteTeamMember = (memberId) => {
+    if (anuenciaMemberId === memberId) setAnuenciaMemberId(null);
+    updateProposal(current => ({
+      ...current,
+      team: current.team.filter(member => member.id !== memberId),
+    }));
+  };
+
+  const handleTeamMemberChange = (memberId, field, value) => {
+    updateProposal(current => ({
+      ...current,
+      team: current.team.map(rawMember => {
+        if (rawMember.id !== memberId) return rawMember;
+        return { ...normalizeTeamMember(rawMember), [field]: value };
+      }),
+    }));
+  };
+
+  const handleGenerateAnuencia = (memberId) => {
+    setAnuenciaMemberId(memberId);
+  };
+
   const handleGenerateDocument = () => {
     setDocumentContent(buildProjectMarkdown({ proposal: activeProposal, edital }));
   };
@@ -231,6 +267,11 @@ export default function PropostasModule({
 
   const showTextEditor = ['objetivos', 'justificativa', 'metodologia'].includes(wizardStep);
   const editorValue = activeProposal[wizardStep] || '';
+  const anuenciaMember = activeProposal.team.find(member => member.id === anuenciaMemberId);
+  const anuenciaContent = anuenciaMember
+    ? buildAnuenciaMarkdown({ member: anuenciaMember, proposal: activeProposal, edital })
+    : '';
+  const anuenciaFileName = `anuencia-${slugify(anuenciaMember?.nome || 'integrante')}`;
 
   return (
     <div className="module-propostas">
@@ -336,6 +377,104 @@ export default function PropostasModule({
                 <Sparkles size={17} />
                 Gerar base com IA
               </button>
+            </div>
+          )}
+
+          {wizardStep === 'equipe' && (
+            <div className="team-editor-container">
+              <div className="budget-heading">
+                <div>
+                  <h4>Equipe do projeto</h4>
+                  <span>{activeProposal.team.length} integrantes cadastrados</span>
+                </div>
+              </div>
+
+              {activeProposal.team.length === 0 && (
+                <p className="team-empty">
+                  Nenhum integrante na equipe. Clique em “Adicionar à equipe” para incluir uma pessoa,
+                  preencher os dados e gerar o termo de anuência dela.
+                </p>
+              )}
+
+              <div className="team-list">
+                {activeProposal.team.map(rawMember => {
+                  const member = normalizeTeamMember(rawMember);
+                  return (
+                    <div key={member.id} className="team-member-card glass" data-member-id={member.id}>
+                      <div className="team-member-grid">
+                        <div className="form-group team-field-wide">
+                          <label>Nome completo</label>
+                          <input className="team-member-nome" value={member.nome} onChange={event => handleTeamMemberChange(member.id, 'nome', event.target.value)} />
+                        </div>
+                        <div className="form-group">
+                          <label>Função no projeto</label>
+                          <select className="team-member-funcao" value={member.funcao} onChange={event => handleTeamMemberChange(member.id, 'funcao', event.target.value)}>
+                            {TEAM_ROLE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label>Vínculo</label>
+                          <select className="team-member-vinculo" value={member.vinculo} onChange={event => handleTeamMemberChange(member.id, 'vinculo', event.target.value)}>
+                            {TEAM_LINK_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label>CPF</label>
+                          <input className="team-member-cpf" value={member.cpf} onChange={event => handleTeamMemberChange(member.id, 'cpf', event.target.value)} />
+                        </div>
+                        <div className="form-group">
+                          <label>RG</label>
+                          <input className="team-member-rg" value={member.rg} onChange={event => handleTeamMemberChange(member.id, 'rg', event.target.value)} />
+                        </div>
+                        <div className="form-group">
+                          <label>Cidade</label>
+                          <input className="team-member-cidade" value={member.cidade} onChange={event => handleTeamMemberChange(member.id, 'cidade', event.target.value)} />
+                        </div>
+                        <div className="form-group">
+                          <label>E-mail</label>
+                          <input type="email" className="team-member-email" value={member.email} onChange={event => handleTeamMemberChange(member.id, 'email', event.target.value)} />
+                        </div>
+                        <div className="form-group">
+                          <label>Telefone</label>
+                          <input className="team-member-telefone" value={member.telefone} onChange={event => handleTeamMemberChange(member.id, 'telefone', event.target.value)} />
+                        </div>
+                        <div className="form-group">
+                          <label>Data da anuência</label>
+                          <input type="date" className="team-member-data" value={member.dataAnuencia} onChange={event => handleTeamMemberChange(member.id, 'dataAnuencia', event.target.value)} />
+                        </div>
+                        <div className="form-group team-anuencia-field">
+                          <label className="team-checkbox">
+                            <input type="checkbox" className="team-member-anuencia" checked={member.anuencia} onChange={event => handleTeamMemberChange(member.id, 'anuencia', event.target.checked)} />
+                            Anuência registrada
+                          </label>
+                        </div>
+                      </div>
+                      <div className="team-member-actions">
+                        <button className="btn-generate-anuencia secondary-action" onClick={() => handleGenerateAnuencia(member.id)}>
+                          <FileText size={16} />
+                          Gerar anuência
+                        </button>
+                        <button className="btn-delete-team-member" data-id={member.id} onClick={() => handleDeleteTeamMember(member.id)}>Excluir</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button id="btn-add-team-member" onClick={handleAddTeamMember}>Adicionar à equipe</button>
+
+              {anuenciaMember && (
+                <div className="anuencia-panel glass">
+                  <div className="anuencia-panel-header">
+                    <h4>Termo de anuência — {anuenciaMember.nome || 'integrante'}</h4>
+                    <a className="dossier-export-link" href={`data:text/markdown;charset=utf-8,${encodeURIComponent(anuenciaContent)}`} download={`${anuenciaFileName}.md`}>
+                      <Download size={16} />
+                      Baixar anuência
+                    </a>
+                  </div>
+                  <pre id="anuencia-output" className="dossier-document-output">{anuenciaContent}</pre>
+                </div>
+              )}
             </div>
           )}
 

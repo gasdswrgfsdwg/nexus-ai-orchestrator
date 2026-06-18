@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildAnuenciaMarkdown,
   buildProjectMarkdown,
   createBudgetItem,
+  createTeamMember,
   getBudgetTotal,
   getDossierCompletion,
   normalizeBudgetItem,
   normalizeProposal,
+  normalizeTeamMember,
 } from '../../src/data/projectModel';
 
 describe('Project dossier model', () => {
@@ -55,5 +58,61 @@ describe('Project dossier model', () => {
     expect(markdown).toContain('## Ideia central');
     expect(markdown).toContain('## Plano financeiro');
     expect(markdown).toContain('Coordenação');
+  });
+});
+
+describe('Project team and anuência', () => {
+  it('creates a team member with safe defaults', () => {
+    const member = createTeamMember(7);
+
+    expect(member.id).toBe(7);
+    expect(member.nome).toBe('');
+    expect(member.funcao).toBe('coordenacao');
+    expect(member.vinculo).toBe('contratado');
+    expect(member.anuencia).toBe(false);
+  });
+
+  it('preserves unknown fields and coerces anuência when normalizing a member', () => {
+    const member = normalizeTeamMember({ id: 3, nome: 'Ana', anuencia: 1, campoLegado: 'manter' });
+
+    expect(member.nome).toBe('Ana');
+    expect(member.anuencia).toBe(true);
+    expect(member.campoLegado).toBe('manter');
+    expect(member.funcao).toBe('coordenacao');
+  });
+
+  it('keeps a team array on the normalized proposal and in the markdown export', () => {
+    const proposal = normalizeProposal({
+      editalId: 'e1',
+      tituloProjeto: 'Cultura em Rede',
+      team: [{ id: 1, nome: 'Maria Souza', funcao: 'producao', vinculo: 'contratado', cpf: '123.456.789-00', anuencia: true }],
+    }, 'e1');
+
+    expect(proposal.team).toHaveLength(1);
+    expect(proposal.team[0].nome).toBe('Maria Souza');
+
+    const markdown = buildProjectMarkdown({ proposal, edital: { titulo: 'Edital Cultura 2026' } });
+    expect(markdown).toContain('## Equipe');
+    expect(markdown).toContain('Maria Souza');
+    expect(markdown).toContain('Registrada');
+  });
+
+  it('builds a filled Termo de Anuência for a team member', () => {
+    const proposal = normalizeProposal({
+      editalId: 'e1',
+      tituloProjeto: 'Cultura em Rede',
+      proponente: 'Nexus Digital',
+      territorio: 'Espírito Santo',
+    }, 'e1');
+    const member = normalizeTeamMember({ id: 1, nome: 'João Lima', funcao: 'oficineiro', cpf: '111.222.333-44', cidade: 'Marilândia', dataAnuencia: '2026-08-15' });
+
+    const anuencia = buildAnuenciaMarkdown({ member, proposal, edital: { titulo: 'Edital Cultura 2026' } });
+
+    expect(anuencia).toContain('# Termo de Anuência e Autorização de Participação');
+    expect(anuencia).toContain('João Lima');
+    expect(anuencia).toContain('111.222.333-44');
+    expect(anuencia).toContain('Cultura em Rede');
+    expect(anuencia).toContain('Oficineiro(a) / Educador(a)');
+    expect(anuencia).toContain('Marilândia, 15/08/2026.');
   });
 });

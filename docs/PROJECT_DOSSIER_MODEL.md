@@ -15,6 +15,7 @@ O modelo canonico esta em `dashboard/src/data/projectModel.js`.
 | Responsabilidade | `proponente`, `responsavel` |
 | Abrangencia | `territorio`, `publicoAlvo`, `duracaoMeses` |
 | Texto tecnico | `objetivos`, `justificativa`, `metodologia` |
+| Equipe | `team` |
 | Execucao | `schedule` |
 | Financeiro | `budget` |
 
@@ -52,6 +53,27 @@ valor = quantidade * valorUnitario
 
 `normalizeBudgetItem()` mantem compatibilidade com linhas antigas que possuem apenas `descricao` e `valor`.
 
+## Equipe e anuencia
+
+A lista `team` guarda os integrantes do projeto. Cada integrante possui:
+
+| Campo | Finalidade | Exemplo |
+| --- | --- | --- |
+| `nome` | Nome completo | Maria Souza |
+| `funcao` | Papel no projeto | `coordenacao`, `producao`, `oficineiro` |
+| `vinculo` | Condicao no projeto | `proponente`, `contratado`, `voluntario` |
+| `cpf` | CPF | 123.456.789-00 |
+| `rg` | Documento de identidade | 1.234.567 |
+| `cidade` | Cidade de residencia | Marilandia |
+| `email` | Contato | nome@exemplo.com |
+| `telefone` | Contato | (27) 90000-0000 |
+| `anuencia` | Anuencia registrada | `true` / `false` |
+| `dataAnuencia` | Data da anuencia | `2026-08-15` |
+
+`normalizeTeamMember()` preenche os valores padrao e preserva campos desconhecidos de dados antigos.
+
+`buildAnuenciaMarkdown({ member, proposal, edital })` gera um Termo de Anuencia e Autorizacao de Participacao ja preenchido com os dados da pessoa e do projeto, pronto para baixar em Markdown. No painel, cada integrante tem o botao "Gerar anuencia" na etapa Equipe do dossie.
+
 ## Portabilidade
 
 O painel oferece dois formatos:
@@ -75,7 +97,7 @@ Essa persistencia e local ao navegador e ao aparelho. Para mover o projeto entre
 
 1. Importar um JSON exportado para restaurar um dossie.
 2. Versionar revisoes do texto e do orcamento.
-3. Adicionar equipe, metas, indicadores e documentos anexos.
+3. Equipe ja implementada (com Termo de Anuencia); ainda faltam metas, indicadores e documentos anexos.
 4. Sincronizar com um backend autenticado quando houver necessidade multiusuario.
-5. Gerar PDF e DOCX a partir do mesmo modelo canonico.
+5. Gerar PDF e DOCX a partir do mesmo modelo canonico (inclusive da anuencia).
 

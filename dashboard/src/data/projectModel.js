@@ -69,6 +69,30 @@ export const FUNDING_SOURCE_OPTIONS = [
   { value: 'outros', label: 'Outros' },
 ];
 
+export const TEAM_ROLE_OPTIONS = [
+  { value: 'coordenacao', label: 'Coordenação geral' },
+  { value: 'producao', label: 'Produção' },
+  { value: 'artistico', label: 'Direção artística / Artista' },
+  { value: 'oficineiro', label: 'Oficineiro(a) / Educador(a)' },
+  { value: 'tecnico', label: 'Equipe técnica' },
+  { value: 'audiovisual', label: 'Audiovisual' },
+  { value: 'comunicacao', label: 'Comunicação e divulgação' },
+  { value: 'administrativo', label: 'Administrativo / Financeiro' },
+  { value: 'acessibilidade', label: 'Acessibilidade' },
+  { value: 'consultoria', label: 'Consultoria / Mentoria' },
+  { value: 'apoio', label: 'Apoio / Logística' },
+  { value: 'outros', label: 'Outros' },
+];
+
+export const TEAM_LINK_OPTIONS = [
+  { value: 'proponente', label: 'Proponente' },
+  { value: 'contratado', label: 'Contratado(a)' },
+  { value: 'prestador', label: 'Prestador(a) de serviço' },
+  { value: 'colaborador', label: 'Colaborador(a)' },
+  { value: 'voluntario', label: 'Voluntário(a)' },
+  { value: 'parceiro', label: 'Parceiro(a) institucional' },
+];
+
 export const createBudgetItem = (id = Date.now()) => ({
   id,
   descricao: '',
@@ -98,6 +122,26 @@ export const normalizeBudgetItem = (item) => {
   };
 };
 
+export const createTeamMember = (id = Date.now()) => ({
+  id,
+  nome: '',
+  funcao: 'coordenacao',
+  vinculo: 'contratado',
+  cpf: '',
+  rg: '',
+  cidade: '',
+  email: '',
+  telefone: '',
+  anuencia: false,
+  dataAnuencia: '',
+});
+
+export const normalizeTeamMember = (member = {}) => ({
+  ...createTeamMember(member.id ?? Date.now()),
+  ...member,
+  anuencia: Boolean(member.anuencia),
+});
+
 export const createEmptyProposal = (editalId = '') => ({
   editalId,
   tituloProjeto: '',
@@ -113,6 +157,7 @@ export const createEmptyProposal = (editalId = '') => ({
   objetivos: '',
   justificativa: '',
   metodologia: '',
+  team: [],
   budget: [],
   schedule: [],
 });
@@ -121,6 +166,7 @@ export const normalizeProposal = (proposal, editalId = '') => ({
   ...createEmptyProposal(editalId),
   ...proposal,
   editalId: proposal?.editalId || editalId,
+  team: (proposal?.team || []).map(normalizeTeamMember),
   budget: (proposal?.budget || []).map(normalizeBudgetItem),
   schedule: proposal?.schedule || [],
 });
@@ -166,7 +212,11 @@ const money = value => Number(value || 0).toLocaleString('pt-BR', { style: 'curr
 export const buildProjectMarkdown = ({ proposal, edital }) => {
   const dossier = normalizeProposal(proposal, proposal?.editalId);
   const budget = dossier.budget.map(normalizeBudgetItem);
+  const team = dossier.team.map(normalizeTeamMember);
   const title = dossier.tituloProjeto || edital?.titulo || 'Projeto sem título';
+  const teamRows = team.length > 0
+    ? team.map(member => `| ${escapeTableCell(member.nome) || '-'} | ${optionLabel(TEAM_ROLE_OPTIONS, member.funcao)} | ${optionLabel(TEAM_LINK_OPTIONS, member.vinculo)} | ${escapeTableCell(member.cpf) || '-'} | ${member.anuencia ? 'Registrada' : 'Pendente'} |`).join('\n')
+    : '| Nenhum integrante cadastrado | - | - | - | - |';
   const budgetRows = budget.length > 0
     ? budget.map(item => `| ${escapeTableCell(item.descricao)} | ${optionLabel(BUDGET_CATEGORY_OPTIONS, item.categoria)} | ${optionLabel(UNIT_OPTIONS, item.unidadeMedida)} | ${item.quantidade} | ${money(item.valorUnitario)} | ${optionLabel(FREQUENCY_OPTIONS, item.frequencia)} | ${money(item.valor)} | ${optionLabel(BUDGET_STATUS_OPTIONS, item.status)} |`).join('\n')
     : '| Nenhum item cadastrado | - | - | - | - | - | - | - |';
@@ -207,6 +257,12 @@ ${dossier.justificativa || 'Não preenchida.'}
 
 ${dossier.metodologia || 'Não preenchida.'}
 
+## Equipe
+
+| Integrante | Função | Vínculo | CPF | Anuência |
+| --- | --- | --- | --- | --- |
+${teamRows}
+
 ## Cronograma
 
 | Atividade | Início | Fim |
@@ -220,5 +276,44 @@ ${scheduleRows}
 ${budgetRows}
 
 **Total do projeto:** ${money(getBudgetTotal(budget))}
+`;
+};
+
+const blankField = value => (String(value ?? '').trim() || '____________________');
+const formatBrDate = (value) => {
+  const raw = String(value ?? '').trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : '_____ de __________________ de _______';
+};
+
+export const buildAnuenciaMarkdown = ({ member, proposal, edital }) => {
+  const person = normalizeTeamMember(member);
+  const dossier = normalizeProposal(proposal, proposal?.editalId);
+  const projeto = dossier.tituloProjeto || edital?.titulo || 'Projeto sem título';
+  const editalNome = edital?.titulo || dossier.editalId || '-';
+  const proponente = dossier.proponente || '-';
+  const funcao = optionLabel(TEAM_ROLE_OPTIONS, person.funcao);
+  const vinculo = optionLabel(TEAM_LINK_OPTIONS, person.vinculo);
+  const cidade = person.cidade || dossier.territorio || 'Cidade';
+  const contato = [person.email, person.telefone].filter(Boolean).join(' · ') || 'Não informado';
+
+  return `# Termo de Anuência e Autorização de Participação
+
+- **Projeto:** ${projeto}
+- **Edital / Programa:** ${editalNome}
+- **Proponente:** ${proponente}
+
+Eu, **${blankField(person.nome)}**, portador(a) do CPF nº ${blankField(person.cpf)} e do documento de identidade (RG) nº ${blankField(person.rg)}, residente em ${blankField(person.cidade || dossier.territorio)}, declaro para os devidos fins que tenho pleno conhecimento do projeto **${projeto}** e **ANUO** com a minha participação na equipe, na função de **${funcao}**, na condição de **${vinculo}**.
+
+Declaro estar ciente das atividades, do cronograma e das responsabilidades relativas à minha função, bem como autorizo o uso do meu nome e dos dados aqui informados para fins de inscrição, contratação, execução e prestação de contas do projeto, nos termos do edital e da legislação aplicável.
+
+**Contato:** ${contato}
+
+${cidade}, ${formatBrDate(person.dataAnuencia)}.
+
+
+_____________________________________________
+${blankField(person.nome)}
+CPF: ${blankField(person.cpf)}
 `;
 };

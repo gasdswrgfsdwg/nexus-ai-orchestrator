@@ -593,6 +593,100 @@
   white-space: pre-wrap;
 }
 
+/* Team & anuência */
+.team-editor-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.team-empty {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px dashed rgba(148, 163, 184, 0.28);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.team-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.team-member-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-left: 3px solid rgba(var(--accent-primary-rgb), 0.55);
+}
+
+.team-member-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.team-field-wide {
+  grid-column: 1 / -1;
+}
+
+.team-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.team-checkbox input {
+  width: auto;
+  min-height: 0;
+}
+
+.team-member-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.module-propostas .btn-delete-team-member {
+  min-width: 40px;
+  padding: 8px 14px;
+  border-color: rgba(var(--accent-danger-rgb), 0.35);
+  background: rgba(var(--accent-danger-rgb), 0.1);
+  color: var(--accent-danger);
+}
+
+.anuencia-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.anuencia-panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.anuencia-panel-header h4 {
+  margin: 0;
+}
+
+.anuencia-panel .dossier-document-output {
+  grid-column: auto;
+}
+
 /* Submissions board */
 .kanban-board {
   display: grid;

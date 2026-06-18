@@ -18,7 +18,7 @@ import './modules.css';
 
 const WORKSPACE_STORAGE_KEY = 'nexus-editais-workspace-v1';
 const VALID_TABS = ['editais', 'propostas', 'kanban', 'pos-aprovacao'];
-const VALID_WIZARD_STEPS = ['resumo', 'objetivos', 'justificativa', 'metodologia', 'cronograma', 'orcamento'];
+const VALID_WIZARD_STEPS = ['resumo', 'objetivos', 'justificativa', 'metodologia', 'equipe', 'cronograma', 'orcamento'];
 
 const getRequestedValue = (parameter, allowedValues) => {
   if (typeof window === 'undefined') return null;
