@@ -4,20 +4,20 @@
 
 /* ─── CSS Variables ─────────────────────────────────────────────── */
 :root {
-  /* Colors — Deep Space Theme */
-  --bg-primary: #0a0a1a;
-  --bg-secondary: #0f0f23;
-  --bg-card: rgba(26, 26, 46, 0.8);
-  --bg-card-solid: #1a1a2e;
-  --bg-card-hover: rgba(30, 30, 55, 0.9);
-  --bg-sidebar: rgba(10, 10, 30, 0.95);
-  --bg-input: rgba(20, 20, 40, 0.6);
+  /* Colors — neutral operational theme */
+  --bg-primary: #0b0f14;
+  --bg-secondary: #111720;
+  --bg-card: rgba(21, 28, 38, 0.94);
+  --bg-card-solid: #151c26;
+  --bg-card-hover: #1a2430;
+  --bg-sidebar: rgba(13, 19, 28, 0.98);
+  --bg-input: #0f151e;
 
   /* Accent Colors */
-  --accent-primary: #6c63ff;
-  --accent-primary-rgb: 108, 99, 255;
-  --accent-secondary: #00d4aa;
-  --accent-secondary-rgb: 0, 212, 170;
+  --accent-primary: #6ea8fe;
+  --accent-primary-rgb: 110, 168, 254;
+  --accent-secondary: #34d399;
+  --accent-secondary-rgb: 52, 211, 153;
   --accent-danger: #ff6b6b;
   --accent-danger-rgb: 255, 107, 107;
   --accent-warning: #ffd93d;
@@ -38,9 +38,9 @@
   --text-bright: #ffffff;
 
   /* Borders */
-  --border-subtle: rgba(108, 99, 255, 0.15);
-  --border-medium: rgba(108, 99, 255, 0.3);
-  --border-glow: rgba(108, 99, 255, 0.5);
+  --border-subtle: rgba(148, 163, 184, 0.16);
+  --border-medium: rgba(148, 163, 184, 0.28);
+  --border-glow: rgba(110, 168, 254, 0.45);
 
   /* Spacing */
   --space-xs: 4px;
@@ -63,9 +63,9 @@
 
   /* Radius */
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 8px;
   --radius-full: 9999px;
 
   /* Shadows */
@@ -109,7 +109,6 @@ body {
   min-height: 100vh;
 }
 
-/* Ambient background gradient */
 body::before {
   content: '';
   position: fixed;
@@ -117,10 +116,7 @@ body::before {
   left: 0;
   right: 0;
   bottom: 0;
-  background:
-    radial-gradient(ellipse 80% 60% at 10% 20%, rgba(108, 99, 255, 0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 80% at 90% 80%, rgba(0, 212, 170, 0.04) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 50% at 50% 50%, rgba(139, 92, 246, 0.03) 0%, transparent 70%);
+  background: #0b0f14;
   pointer-events: none;
   z-index: 0;
 }

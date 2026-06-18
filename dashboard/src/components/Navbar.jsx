@@ -1,10 +1,18 @@
 import React, { useState } from 'react';
+import {
+  BadgeCheck,
+  Columns3,
+  FilePenLine,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Radar,
+} from 'lucide-react';
 
 const NAV_ITEMS = [
-  { id: 'editais', label: 'Descoberta', icon: '📡' },
-  { id: 'propostas', label: 'Propostas', icon: '✍️' },
-  { id: 'kanban', label: 'Submissões', icon: '📋' },
-  { id: 'pos-aprovacao', label: 'Pós-Aprovação', icon: '🏆' },
+  { id: 'editais', label: 'Descoberta', mobileLabel: 'Descoberta', icon: Radar },
+  { id: 'propostas', label: 'Propostas', mobileLabel: 'Propostas', icon: FilePenLine },
+  { id: 'kanban', label: 'Submissões', mobileLabel: 'Submissões', icon: Columns3 },
+  { id: 'pos-aprovacao', label: 'Pós-Aprovação', mobileLabel: 'Aprovados', icon: BadgeCheck },
 ];
 
 export default function Navbar({ activeTab, onTabChange, children, systemStats }) {
@@ -61,24 +69,28 @@ export default function Navbar({ activeTab, onTabChange, children, systemStats }
             onClick={() => setIsCollapsed(!isCollapsed)}
             aria-label={isCollapsed ? "Expandir menu" : "Colapsar menu"}
           >
-            {isCollapsed ? '⟫' : '⟪'}
+            {isCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
         </div>
 
         {/* Sidebar Nav Buttons */}
         <nav className="sidebar-nav">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              id={`nav-${item.id}`}
-              className={`nav-item ${activeTab === item.id ? 'nav-item--active' : ''}`}
-              onClick={() => handleTabChange(item.id)}
-            >
-              <span className="nav-icon" title={item.label}>{item.icon}</span>
-              {!isCollapsed && <span className="nav-label">{item.label}</span>}
-              {activeTab === item.id && <span className="nav-indicator"></span>}
-            </button>
-          ))}
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                id={`nav-${item.id}`}
+                className={`nav-item ${activeTab === item.id ? 'nav-item--active' : ''}`}
+                onClick={() => handleTabChange(item.id)}
+                title={item.label}
+              >
+                <span className="nav-icon"><Icon size={19} strokeWidth={1.9} /></span>
+                {!isCollapsed && <span className="nav-label">{item.label}</span>}
+                {activeTab === item.id && <span className="nav-indicator"></span>}
+              </button>
+            );
+          })}
         </nav>
 
         {/* Sidebar Footer with system stats */}
@@ -87,7 +99,7 @@ export default function Navbar({ activeTab, onTabChange, children, systemStats }
             <div className="system-status glass">
               <div className="status-row">
                 <span className="status-dot status-dot--online"></span>
-                <span className="status-label">Monitoramento Ativo</span>
+                <span className="status-label">Painel online</span>
               </div>
               <div className="status-details">
                 {systemStats ? (
@@ -96,7 +108,7 @@ export default function Navbar({ activeTab, onTabChange, children, systemStats }
                     <span>Perfil: {systemStats.profileCompleted ? 'Preenchido' : 'Incompleto'}</span>
                   </div>
                 ) : (
-                  <span>Fontes online</span>
+                  <span>Dados locais</span>
                 )}
               </div>
             </div>
@@ -134,7 +146,7 @@ export default function Navbar({ activeTab, onTabChange, children, systemStats }
           <div className="header-right">
             <div className="header-live-indicator">
               <span className="live-dot"></span>
-              <span className="live-text">MONITORANDO</span>
+              <span className="live-text">ONLINE</span>
             </div>
           </div>
         </header>
@@ -144,6 +156,23 @@ export default function Navbar({ activeTab, onTabChange, children, systemStats }
           {children}
         </div>
       </main>
+
+      <nav className="mobile-bottom-nav" aria-label="Navegação principal">
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.id}
+              className={`mobile-bottom-item ${activeTab === item.id ? 'mobile-bottom-item--active' : ''}`}
+              onClick={() => handleTabChange(item.id)}
+              aria-current={activeTab === item.id ? 'page' : undefined}
+            >
+              <Icon className="mobile-bottom-icon" size={20} strokeWidth={1.9} />
+              <span className="mobile-bottom-label">{item.mobileLabel}</span>
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }

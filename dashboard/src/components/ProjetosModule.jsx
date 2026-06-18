@@ -5,7 +5,8 @@ export default function ProjetosModule({ projects, setProjects, appBridge }) {
 
   const checkIsNearDeadline = (deadlineStr) => {
     const dl = new Date(deadlineStr);
-    const today = new Date('2026-06-17'); // fixed base date representing baseline time
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const diff = dl.getTime() - today.getTime();
     const days = diff / (1000 * 3600 * 24);
     return days >= 0 && days <= 60;

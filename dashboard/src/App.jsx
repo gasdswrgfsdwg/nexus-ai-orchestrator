@@ -14,6 +14,7 @@ import {
 } from './data/editaisMockData';
 
 import './App.css';
+import './modules.css';
 
 export default function App({ appBridge }) {
   // Central States
