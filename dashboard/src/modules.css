@@ -580,6 +580,16 @@
   font-size: 0.72rem;
 }
 
+.dossier-import-link {
+  cursor: pointer;
+}
+
+.dossier-import-status,
+.dossier-import-error {
+  grid-column: 2;
+  margin-top: 0;
+}
+
 .dossier-document-output {
   grid-column: 2;
   max-height: 420px;

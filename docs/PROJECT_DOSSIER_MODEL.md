@@ -95,7 +95,7 @@ Essa persistencia e local ao navegador e ao aparelho. Para mover o projeto entre
 
 ## Proximas evolucoes recomendadas
 
-1. Importar um JSON exportado para restaurar um dossie.
+1. Importar um JSON exportado para restaurar um dossie. **Implementado** (botao "Importar dados" no rodape do dossie); aceita o JSON exportado (`{ project }`) ou um objeto de projeto cru e preserva campos desconhecidos via `normalizeProposal`.
 2. Versionar revisoes do texto e do orcamento.
 3. Equipe ja implementada (com Termo de Anuencia); ainda faltam metas, indicadores e documentos anexos.
 4. Sincronizar com um backend autenticado quando houver necessidade multiusuario.

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, FileJson, FileText, Sparkles } from 'lucide-react';
+import { Download, FileJson, FileText, Sparkles, Upload } from 'lucide-react';
 import {
   BUDGET_CATEGORY_OPTIONS,
   BUDGET_STATUS_OPTIONS,
@@ -66,6 +66,8 @@ export default function PropostasModule({
   const [documentContent, setDocumentContent] = React.useState('');
   const [savedAt, setSavedAt] = React.useState('');
   const [anuenciaMemberId, setAnuenciaMemberId] = React.useState(null);
+  const [importError, setImportError] = React.useState('');
+  const [importStatus, setImportStatus] = React.useState('');
 
   const completion = getDossierCompletion(activeProposal);
   const budgetTotal = getBudgetTotal(activeProposal.budget);
@@ -258,6 +260,48 @@ export default function PropostasModule({
 
   const handleGenerateDocument = () => {
     setDocumentContent(buildProjectMarkdown({ proposal: activeProposal, edital }));
+  };
+
+  const applyImportedProject = (project) => {
+    const targetId = project?.editalId || proposalId;
+    const normalized = normalizeProposal(project, targetId);
+    if (appBridge) {
+      appBridge.state.proposals[targetId] = normalized;
+      appBridge.state.activeProposalEditalId = targetId;
+      appBridge.render();
+    } else {
+      setProposals(prev => ({ ...prev, [targetId]: normalized }));
+      setActiveProposalEditalId(targetId);
+    }
+    setDocumentContent('');
+    setAnuenciaMemberId(null);
+    setImportError('');
+    setImportStatus(`Dossiê importado: ${normalized.tituloProjeto || targetId}`);
+  };
+
+  const handleImportJson = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result));
+        const project = parsed && typeof parsed === 'object' && parsed.project ? parsed.project : parsed;
+        if (!project || typeof project !== 'object' || Array.isArray(project)) {
+          throw new Error('formato inválido');
+        }
+        applyImportedProject(project);
+      } catch {
+        setImportStatus('');
+        setImportError('Arquivo JSON inválido. Use um arquivo gerado pelo botão "Exportar dados".');
+      }
+    };
+    reader.onerror = () => {
+      setImportStatus('');
+      setImportError('Não foi possível ler o arquivo selecionado.');
+    };
+    reader.readAsText(file);
   };
 
   const handleSaveProposal = () => {
@@ -613,7 +657,15 @@ export default function PropostasModule({
             <FileJson size={17} />
             Exportar dados
           </a>
+          <label className="dossier-export-link dossier-import-link" htmlFor="import-json-input">
+            <Upload size={17} />
+            Importar dados
+            <input id="import-json-input" type="file" accept="application/json,.json" onChange={handleImportJson} hidden />
+          </label>
         </div>
+
+        {importStatus && <div className="dossier-save-status dossier-import-status" id="import-status-msg">{importStatus}</div>}
+        {importError && <div className="error-message dossier-import-error" id="import-error-msg">{importError}</div>}
 
         {documentContent && <pre id="dossier-document-output" className="dossier-document-output">{documentContent}</pre>}
       </div>

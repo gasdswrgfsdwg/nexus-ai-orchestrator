@@ -116,3 +116,20 @@ describe('Project team and anuência', () => {
     expect(anuencia).toContain('Marilândia, 15/08/2026.');
   });
 });
+
+describe('Project import / migração', () => {
+  it('preserves unknown top-level and member fields when normalizing an imported project', () => {
+    const imported = normalizeProposal({
+      editalId: 'e9',
+      tituloProjeto: 'Projeto Importado',
+      campoFuturo: { nota: 'manter' },
+      team: [{ id: 1, nome: 'X', papelCustomizado: 'manter' }],
+      budget: [{ id: 1, descricao: 'Item', valor: 1000 }],
+    }, 'e9');
+
+    expect(imported.campoFuturo).toEqual({ nota: 'manter' });
+    expect(imported.team[0].papelCustomizado).toBe('manter');
+    expect(imported.budget[0].valor).toBe(1000);
+    expect(imported.tituloProjeto).toBe('Projeto Importado');
+  });
+});
