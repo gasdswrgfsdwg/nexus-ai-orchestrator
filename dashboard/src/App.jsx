@@ -16,19 +16,50 @@ import {
 import './App.css';
 import './modules.css';
 
+const WORKSPACE_STORAGE_KEY = 'nexus-editais-workspace-v1';
+const VALID_TABS = ['editais', 'propostas', 'kanban', 'pos-aprovacao'];
+const VALID_WIZARD_STEPS = ['resumo', 'objetivos', 'justificativa', 'metodologia', 'cronograma', 'orcamento'];
+
+const getRequestedValue = (parameter, allowedValues) => {
+  if (typeof window === 'undefined') return null;
+  const value = new URLSearchParams(window.location.search).get(parameter);
+  return allowedValues.includes(value) ? value : null;
+};
+
+const canUseLocalStorage = () => (
+  typeof window !== 'undefined'
+  && !window.navigator?.userAgent?.toLowerCase().includes('jsdom')
+  && typeof window.localStorage !== 'undefined'
+);
+
+const loadStoredWorkspace = () => {
+  if (!canUseLocalStorage()) return null;
+  try {
+    const stored = window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+};
+
 export default function App({ appBridge }) {
+  const storedWorkspace = React.useMemo(
+    () => (appBridge ? null : loadStoredWorkspace()),
+    [appBridge],
+  );
+
   // Central States
-  const [activeTab, setActiveTab] = useState(appBridge ? appBridge.state.activeModule : 'editais');
-  const [editais, setEditais] = useState(appBridge ? appBridge.state.editais : initialEditais);
-  const [userProfile, setUserProfile] = useState(appBridge ? appBridge.state.userProfile : initialUserProfile);
-  const [proposals, setProposals] = useState(appBridge ? appBridge.state.proposals : initialProposals);
-  const [projects, setProjects] = useState(appBridge ? appBridge.state.projects : initialProjects);
+  const [activeTab, setActiveTab] = useState(appBridge ? appBridge.state.activeModule : (getRequestedValue('tab', VALID_TABS) || storedWorkspace?.activeTab || 'editais'));
+  const [editais, setEditais] = useState(appBridge ? appBridge.state.editais : (storedWorkspace?.editais || initialEditais));
+  const [userProfile, setUserProfile] = useState(appBridge ? appBridge.state.userProfile : (storedWorkspace?.userProfile || initialUserProfile));
+  const [proposals, setProposals] = useState(appBridge ? appBridge.state.proposals : (storedWorkspace?.proposals || initialProposals));
+  const [projects, setProjects] = useState(appBridge ? appBridge.state.projects : (storedWorkspace?.projects || initialProjects));
 
   // Additional fields for testing/sync bridge
   const [viewportWidth, setViewportWidth] = useState(appBridge ? appBridge.state.viewportWidth : 1024);
-  const [activeWizardStep, setActiveWizardStep] = useState(appBridge ? appBridge.state.activeWizardStep : 'objetivos');
-  const [activeProposalEditalId, setActiveProposalEditalId] = useState(appBridge ? appBridge.state.activeProposalEditalId : 'e2');
-  const [posAprovacao, setPosAprovacao] = useState(appBridge ? appBridge.state.posAprovacao : {});
+  const [activeWizardStep, setActiveWizardStep] = useState(appBridge ? appBridge.state.activeWizardStep : (getRequestedValue('step', VALID_WIZARD_STEPS) || storedWorkspace?.activeWizardStep || 'resumo'));
+  const [activeProposalEditalId, setActiveProposalEditalId] = useState(appBridge ? appBridge.state.activeProposalEditalId : (storedWorkspace?.activeProposalEditalId || 'e2'));
+  const [posAprovacao, setPosAprovacao] = useState(appBridge ? appBridge.state.posAprovacao : (storedWorkspace?.posAprovacao || {}));
   const [currentFilterCategory, setCurrentFilterCategory] = useState(appBridge ? appBridge.state.currentFilterCategory : 'todas');
   const [currentSearchTerm, setCurrentSearchTerm] = useState(appBridge ? appBridge.state.currentSearchTerm : '');
   const [errors, setErrors] = useState(appBridge ? appBridge.state.errors : {});
@@ -55,6 +86,30 @@ export default function App({ appBridge }) {
       };
     }
   }, [appBridge]);
+
+  useEffect(() => {
+    if (appBridge || !canUseLocalStorage()) return;
+    window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify({
+      activeTab,
+      editais,
+      userProfile,
+      proposals,
+      projects,
+      activeWizardStep,
+      activeProposalEditalId,
+      posAprovacao,
+    }));
+  }, [
+    appBridge,
+    activeTab,
+    editais,
+    userProfile,
+    proposals,
+    projects,
+    activeWizardStep,
+    activeProposalEditalId,
+    posAprovacao,
+  ]);
 
   const renderModuleContent = () => {
     switch (activeTab) {

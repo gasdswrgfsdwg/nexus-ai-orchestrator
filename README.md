@@ -116,6 +116,13 @@ Interface visual premium com:
 - Painel de análise de mercado
 - Monitor de logs em tempo real
 
+### Nexus Editais
+
+A interface publicada tambem organiza o ciclo de projetos: descoberta, dossie da proposta, submissao e pos-aprovacao.
+
+- [Modelo do Dossie do Projeto](docs/PROJECT_DOSSIER_MODEL.md)
+- [Prompt para continuar com outra IA](CONTINUAR_COM_OUTRA_IA.md)
+
 ## 📁 Estrutura do Projeto
 
 ```

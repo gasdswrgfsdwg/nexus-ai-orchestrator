@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createEmptyProposal } from '../data/projectModel';
 
 // Fallback scoring logic moved to module level for reusability
 const calculateScoresFallback = (edList, uProf) => {
@@ -128,14 +129,7 @@ export default function EditaisModule({
   const handleCreateProposal = (editalId) => {
     if (appBridge) {
       if (!appBridge.state.proposals[editalId]) {
-        appBridge.state.proposals[editalId] = {
-          editalId,
-          objetivos: '',
-          justificativa: '',
-          metodologia: '',
-          budget: [],
-          schedule: []
-        };
+        appBridge.state.proposals[editalId] = createEmptyProposal(editalId);
       }
       appBridge.state.activeProposalEditalId = editalId;
       appBridge.state.activeModule = 'propostas';

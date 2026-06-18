@@ -1,3 +1,5 @@
+import { normalizeProposal } from './projectModel';
+
 export const initialUserProfile = {
   keywords: ['tecnologia', 'cultura', 'social'],
   area: 'geral',
@@ -19,20 +21,30 @@ export const initialEditais = [
 ];
 
 export const initialProposals = {
-  e2: {
+  e2: normalizeProposal({
     editalId: 'e2',
+    tituloProjeto: 'Circuito Cultura Digital Capixaba',
+    ideiaCentral: 'Levar formação, criação e circulação cultural mediada por tecnologia para jovens de territórios periféricos.',
+    sinopse: 'Circuito de oficinas e mostras que combina cultura regional, produção audiovisual e ferramentas digitais em uma jornada de seis meses.',
+    areaProjeto: 'cultura',
+    statusProjeto: 'em_escrita',
+    proponente: 'Nexus Digital',
+    responsavel: 'Coordenação de Projetos',
+    territorio: 'Espírito Santo',
+    publicoAlvo: 'Jovens de 15 a 29 anos, educadores e agentes culturais',
+    duracaoMeses: 6,
     objetivos: 'Objetivos iniciais da proposta de cultura.',
     justificativa: 'Justificativa para captação Lei Rouanet.',
     metodologia: 'Metodologia de execução do plano cultural.',
     budget: [
-      { id: 1, descricao: 'Recursos Humanos', valor: 150000 },
-      { id: 2, descricao: 'Logística e Locações', valor: 100000 }
+      { id: 1, descricao: 'Equipe de coordenação e produção', categoria: 'equipe', unidadeMedida: 'mes', quantidade: 6, valorUnitario: 25000, valor: 150000, frequencia: 'mensal', status: 'estimado', fonteRecurso: 'edital', anoReferencia: 2026 },
+      { id: 2, descricao: 'Logística e locações', categoria: 'logistica', unidadeMedida: 'servico', quantidade: 1, valorUnitario: 100000, valor: 100000, frequencia: 'unica', status: 'cotado', fonteRecurso: 'edital', anoReferencia: 2026 }
     ],
     schedule: [
       { id: 1, tarefa: 'Fase de Planejamento', inicio: '2026-11-01', fim: '2026-11-30' },
       { id: 2, tarefa: 'Produção e Execução', inicio: '2026-12-01', fim: '2027-04-30' }
     ]
-  }
+  }, 'e2')
 };
 
 export const initialProjects = [

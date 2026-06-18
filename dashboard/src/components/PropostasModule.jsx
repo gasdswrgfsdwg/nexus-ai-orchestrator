@@ -1,4 +1,43 @@
 import React from 'react';
+import { Download, FileJson, FileText, Sparkles } from 'lucide-react';
+import {
+  BUDGET_CATEGORY_OPTIONS,
+  BUDGET_STATUS_OPTIONS,
+  FREQUENCY_OPTIONS,
+  FUNDING_SOURCE_OPTIONS,
+  PROJECT_AREA_OPTIONS,
+  PROJECT_STATUS_OPTIONS,
+  UNIT_OPTIONS,
+  buildProjectMarkdown,
+  createBudgetItem,
+  createEmptyProposal,
+  getBudgetSummary,
+  getBudgetTotal,
+  getDossierCompletion,
+  normalizeBudgetItem,
+  normalizeProposal,
+} from '../data/projectModel';
+
+const WIZARD_STEPS = [
+  { id: 'resumo', label: 'Resumo' },
+  { id: 'objetivos', label: 'Objetivos' },
+  { id: 'justificativa', label: 'Justificativa' },
+  { id: 'metodologia', label: 'Metodologia' },
+  { id: 'cronograma', label: 'Cronograma' },
+  { id: 'orcamento', label: 'Financeiro' },
+];
+
+const money = value => Number(value || 0).toLocaleString('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+});
+
+const slugify = value => String(value || 'projeto')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/(^-|-$)/g, '');
 
 export default function PropostasModule({
   proposals,
@@ -16,25 +55,49 @@ export default function PropostasModule({
   const wizardStep = appBridge ? appBridge.state.activeWizardStep : activeWizardStep;
   const proposalsList = appBridge ? appBridge.state.proposals : proposals;
   const currentErrors = appBridge ? appBridge.state.errors : errors;
+  const activeProposal = normalizeProposal(proposalsList[proposalId] || createEmptyProposal(proposalId), proposalId);
+  const edital = editais.find(item => item.id === proposalId) || { titulo: 'Nenhum edital selecionado' };
+  const [documentContent, setDocumentContent] = React.useState('');
+  const [savedAt, setSavedAt] = React.useState('');
 
-  const activeProposal = proposalsList[proposalId] || {
-    editalId: proposalId,
-    objetivos: '',
-    justificativa: '',
-    metodologia: '',
-    budget: [],
-    schedule: []
+  const completion = getDossierCompletion(activeProposal);
+  const budgetTotal = getBudgetTotal(activeProposal.budget);
+  const budgetSummary = getBudgetSummary(activeProposal.budget);
+  const fileName = slugify(activeProposal.tituloProjeto || edital.titulo);
+  const markdownContent = documentContent || buildProjectMarkdown({ proposal: activeProposal, edital });
+  const jsonContent = JSON.stringify({
+    schemaVersion: 1,
+    exportedAt: new Date().toISOString(),
+    edital,
+    project: activeProposal,
+  }, null, 2);
+  const proposalIds = [...new Set([proposalId, ...Object.keys(proposalsList)])].filter(Boolean);
+
+  const updateProposal = (updater) => {
+    if (appBridge) {
+      const current = normalizeProposal(
+        appBridge.state.proposals[proposalId] || createEmptyProposal(proposalId),
+        proposalId,
+      );
+      appBridge.state.proposals[proposalId] = updater(current);
+      appBridge.render();
+      return;
+    }
+
+    setProposals(prev => {
+      const current = normalizeProposal(prev[proposalId] || createEmptyProposal(proposalId), proposalId);
+      return { ...prev, [proposalId]: updater(current) };
+    });
   };
 
-  const edital = editais.find(e => e.id === proposalId) || { titulo: 'Nenhum' };
-
-  const handleProposalSelect = (e) => {
-    const val = e.target.value;
+  const handleProposalSelect = (event) => {
+    const value = event.target.value;
+    setDocumentContent('');
     if (appBridge) {
-      appBridge.state.activeProposalEditalId = val;
+      appBridge.state.activeProposalEditalId = value;
       appBridge.render();
     } else {
-      setActiveProposalEditalId(val);
+      setActiveProposalEditalId(value);
     }
   };
 
@@ -47,472 +110,373 @@ export default function PropostasModule({
     }
   };
 
-  const handleTextChange = (e) => {
-    const val = e.target.value;
-    if (appBridge) {
-      const prop = appBridge.state.proposals[proposalId];
-      if (prop) {
-        prop[wizardStep] = val;
-      }
-    } else {
-      setProposals(prev => ({
-        ...prev,
-        [proposalId]: {
-          ...activeProposal,
-          [wizardStep]: val
-        }
-      }));
-    }
+  const handleFieldChange = (field, value) => {
+    updateProposal(current => ({ ...current, [field]: value }));
+  };
+
+  const handleTextChange = (event) => {
+    handleFieldChange(wizardStep, event.target.value);
   };
 
   const handleGenerateAI = () => {
-    let generated = '';
-    if (wizardStep === 'objetivos') {
-      generated = 'Texto gerado automaticamente por IA para a seção Objetivos: Este projeto visa democratizar o acesso à tecnologia e à cultura regional.';
-    } else if (wizardStep === 'justificativa') {
-      generated = 'Texto gerado automaticamente por IA para a seção Justificativa: Justifica-se pela escassez de iniciativas integradas na região periférica.';
-    } else if (wizardStep === 'metodologia') {
-      generated = 'Texto gerado automaticamente por IA para a seção Metodologia: A metodologia compreende 4 fases principais de workshop e mentoria.';
-    }
-    
-    if (appBridge) {
-      const prop = appBridge.state.proposals[proposalId];
-      if (prop) {
-        prop[wizardStep] = generated;
-      }
-      appBridge.render();
-    } else {
-      setProposals(prev => ({
-        ...prev,
-        [proposalId]: {
-          ...activeProposal,
-          [wizardStep]: generated
-        }
-      }));
-    }
+    const generatedByStep = {
+      objetivos: 'Texto gerado automaticamente por IA para a seção Objetivos: democratizar o acesso à cultura e à tecnologia, fortalecer agentes locais e ampliar a circulação da produção regional.',
+      justificativa: 'Texto gerado automaticamente por IA. Justificativa: o projeto responde à baixa oferta de formação e circulação cultural nos territórios atendidos, conectando repertório local, inclusão digital e geração de oportunidades.',
+      metodologia: 'Texto gerado automaticamente por IA para a seção Metodologia: a execução será organizada em diagnóstico, mobilização, oficinas práticas, acompanhamento de produção e mostra pública de resultados.',
+    };
+    handleFieldChange(wizardStep, generatedByStep[wizardStep] || '');
   };
 
   const handleAddBudgetRow = () => {
-    const newId = Date.now();
-    if (appBridge) {
-      const prop = appBridge.state.proposals[proposalId];
-      if (prop) {
-        prop.budget.push({ id: newId, descricao: '', valor: 0 });
-      }
-      appBridge.render();
-    } else {
-      setProposals(prev => ({
-        ...prev,
-        [proposalId]: {
-          ...activeProposal,
-          budget: [...activeProposal.budget, { id: newId, descricao: '', valor: 0 }]
-        }
-      }));
-    }
+    updateProposal(current => ({
+      ...current,
+      budget: [...current.budget, createBudgetItem(Date.now())],
+    }));
   };
 
   const handleDeleteBudgetRow = (rowId) => {
-    if (appBridge) {
-      const prop = appBridge.state.proposals[proposalId];
-      if (prop) {
-        prop.budget = prop.budget.filter(item => item.id !== rowId);
-      }
-      appBridge.render();
-    } else {
-      setProposals(prev => ({
-        ...prev,
-        [proposalId]: {
-          ...activeProposal,
-          budget: activeProposal.budget.filter(item => item.id !== rowId)
-        }
-      }));
-    }
+    updateProposal(current => ({
+      ...current,
+      budget: current.budget.filter(item => item.id !== rowId),
+    }));
   };
 
-  const handleBudgetDescChange = (rowId, val) => {
-    if (appBridge) {
-      const prop = appBridge.state.proposals[proposalId];
-      if (prop) {
-        const item = prop.budget.find(i => i.id === rowId);
-        if (item) item.descricao = val;
-      }
-    } else {
-      setProposals(prev => {
-        const prop = prev[proposalId];
-        const newBudget = prop.budget.map(item => item.id === rowId ? { ...item, descricao: val } : item);
-        return {
-          ...prev,
-          [proposalId]: {
-            ...prop,
-            budget: newBudget
-          }
+  const handleBudgetItemChange = (rowId, field, value) => {
+    updateProposal(current => ({
+      ...current,
+      budget: current.budget.map(rawItem => {
+        if (rawItem.id !== rowId) return rawItem;
+        const item = normalizeBudgetItem(rawItem);
+        const numericFields = ['quantidade', 'valorUnitario', 'anoReferencia'];
+        const next = {
+          ...item,
+          [field]: numericFields.includes(field) ? Number(value) : value,
         };
-      });
-    }
+        next.valor = Number(next.quantidade || 0) * Number(next.valorUnitario || 0);
+        return next;
+      }),
+    }));
   };
 
-  const handleBudgetValChange = (rowId, val) => {
-    const numVal = Number(val);
-    if (appBridge) {
-      const prop = appBridge.state.proposals[proposalId];
-      if (prop) {
-        const item = prop.budget.find(i => i.id === rowId);
-        if (item) item.valor = numVal;
-        if (numVal < 0) {
-          appBridge.state.errors.budget = 'Valor não pode ser negativo';
-        } else {
-          delete appBridge.state.errors.budget;
-        }
-      }
-      appBridge.render();
+  const handleBudgetDescChange = (rowId, value) => handleBudgetItemChange(rowId, 'descricao', value);
+
+  const handleBudgetValChange = (rowId, value) => {
+    const numericValue = Number(value);
+    handleBudgetItemChange(rowId, 'valorUnitario', numericValue);
+    if (numericValue < 0) {
+      if (appBridge) appBridge.state.errors.budget = 'Valor não pode ser negativo';
+      else setErrors(prev => ({ ...prev, budget: 'Valor não pode ser negativo' }));
+    } else if (appBridge) {
+      delete appBridge.state.errors.budget;
     } else {
-      setProposals(prev => {
-        const prop = prev[proposalId];
-        const newBudget = prop.budget.map(item => item.id === rowId ? { ...item, valor: numVal } : item);
-        return {
-          ...prev,
-          [proposalId]: {
-            ...prop,
-            budget: newBudget
-          }
-        };
+      setErrors(prev => {
+        const next = { ...prev };
+        delete next.budget;
+        return next;
       });
-      if (numVal < 0) {
-        setErrors(prev => ({ ...prev, budget: 'Valor não pode ser negativo' }));
-      } else {
-        setErrors(prev => {
-          const next = { ...prev };
-          delete next.budget;
-          return next;
-        });
-      }
     }
   };
 
   const handleAddScheduleRow = () => {
-    const newId = Date.now();
-    if (appBridge) {
-      const prop = appBridge.state.proposals[proposalId];
-      if (prop) {
-        prop.schedule.push({ id: newId, tarefa: '', inicio: '', fim: '' });
-      }
-      appBridge.render();
-    } else {
-      setProposals(prev => ({
-        ...prev,
-        [proposalId]: {
-          ...activeProposal,
-          schedule: [...activeProposal.schedule, { id: newId, tarefa: '', inicio: '', fim: '' }]
-        }
-      }));
-    }
+    updateProposal(current => ({
+      ...current,
+      schedule: [...current.schedule, { id: Date.now(), tarefa: '', inicio: '', fim: '' }],
+    }));
   };
 
   const handleDeleteScheduleRow = (rowId) => {
-    if (appBridge) {
-      const prop = appBridge.state.proposals[proposalId];
-      if (prop) {
-        prop.schedule = prop.schedule.filter(item => item.id !== rowId);
-      }
-      appBridge.render();
-    } else {
-      setProposals(prev => ({
-        ...prev,
-        [proposalId]: {
-          ...activeProposal,
-          schedule: activeProposal.schedule.filter(item => item.id !== rowId)
-        }
-      }));
-    }
-  };
-
-  const handleScheduleTaskChange = (rowId, val) => {
-    if (appBridge) {
-      const prop = appBridge.state.proposals[proposalId];
-      if (prop) {
-        const item = prop.schedule.find(i => i.id === rowId);
-        if (item) item.tarefa = val;
-      }
-    } else {
-      setProposals(prev => {
-        const prop = prev[proposalId];
-        const newSchedule = prop.schedule.map(item => item.id === rowId ? { ...item, tarefa: val } : item);
-        return {
-          ...prev,
-          [proposalId]: {
-            ...prop,
-            schedule: newSchedule
-          }
-        };
-      });
-    }
+    updateProposal(current => ({
+      ...current,
+      schedule: current.schedule.filter(item => item.id !== rowId),
+    }));
   };
 
   const validateDates = (item) => {
-    if (item.inicio && item.fim) {
-      if (new Date(item.fim) < new Date(item.inicio)) {
-        appBridge.state.errors.schedule = 'Fim deve ser após Início';
-      } else {
-        delete appBridge.state.errors.schedule;
-      }
-      appBridge.render();
-    }
-  };
-
-  const validateDatesFallback = (item) => {
-    if (item.inicio && item.fim) {
-      if (new Date(item.fim) < new Date(item.inicio)) {
-        setErrors(prev => ({ ...prev, schedule: 'Fim deve ser após Início' }));
-      } else {
-        setErrors(prev => {
-          const next = { ...prev };
-          delete next.schedule;
-          return next;
-        });
-      }
-    }
-  };
-
-  const handleScheduleStartChange = (rowId, val) => {
+    if (!item.inicio || !item.fim) return;
+    const invalid = new Date(item.fim) < new Date(item.inicio);
     if (appBridge) {
-      const prop = appBridge.state.proposals[proposalId];
-      if (prop) {
-        const item = prop.schedule.find(i => i.id === rowId);
-        if (item) {
-          item.inicio = val;
-          validateDates(item);
-        }
-      }
-    } else {
-      let updatedItem;
-      setProposals(prev => {
-        const prop = prev[proposalId];
-        const newSchedule = prop.schedule.map(item => {
-          if (item.id === rowId) {
-            updatedItem = { ...item, inicio: val };
-            return updatedItem;
-          }
-          return item;
-        });
-        return {
-          ...prev,
-          [proposalId]: {
-            ...prop,
-            schedule: newSchedule
-          }
-        };
-      });
-      if (updatedItem) {
-        validateDatesFallback(updatedItem);
-      }
+      if (invalid) appBridge.state.errors.schedule = 'Fim deve ser após Início';
+      else delete appBridge.state.errors.schedule;
+      return;
     }
+    setErrors(prev => {
+      const next = { ...prev };
+      if (invalid) next.schedule = 'Fim deve ser após Início';
+      else delete next.schedule;
+      return next;
+    });
   };
 
-  const handleScheduleEndChange = (rowId, val) => {
-    if (appBridge) {
-      const prop = appBridge.state.proposals[proposalId];
-      if (prop) {
-        const item = prop.schedule.find(i => i.id === rowId);
-        if (item) {
-          item.fim = val;
-          validateDates(item);
-        }
-      }
-    } else {
-      let updatedItem;
-      setProposals(prev => {
-        const prop = prev[proposalId];
-        const newSchedule = prop.schedule.map(item => {
-          if (item.id === rowId) {
-            updatedItem = { ...item, fim: val };
-            return updatedItem;
-          }
-          return item;
-        });
-        return {
-          ...prev,
-          [proposalId]: {
-            ...prop,
-            schedule: newSchedule
-          }
-        };
-      });
-      if (updatedItem) {
-        validateDatesFallback(updatedItem);
-      }
-    }
+  const handleScheduleChange = (rowId, field, value) => {
+    let changedItem;
+    updateProposal(current => ({
+      ...current,
+      schedule: current.schedule.map(item => {
+        if (item.id !== rowId) return item;
+        changedItem = { ...item, [field]: value };
+        return changedItem;
+      }),
+    }));
+    if (changedItem && (field === 'inicio' || field === 'fim')) validateDates(changedItem);
+  };
+
+  const handleGenerateDocument = () => {
+    setDocumentContent(buildProjectMarkdown({ proposal: activeProposal, edital }));
   };
 
   const handleSaveProposal = () => {
-    if (appBridge) {
-      appBridge.render();
-    }
+    setSavedAt(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+    if (appBridge) appBridge.render();
   };
 
   const showTextEditor = ['objetivos', 'justificativa', 'metodologia'].includes(wizardStep);
-
-  let editorValue = '';
-  if (wizardStep === 'objetivos') editorValue = activeProposal.objetivos;
-  else if (wizardStep === 'justificativa') editorValue = activeProposal.justificativa;
-  else if (wizardStep === 'metodologia') editorValue = activeProposal.metodologia;
+  const editorValue = activeProposal[wizardStep] || '';
 
   return (
     <div className="module-propostas">
-      <div className="proposal-header glass">
-        <h3>Proposta para: <span id="proposal-edital-title">{edital.titulo}</span></h3>
+      <div className="proposal-header glass dossier-header">
+        <div className="dossier-heading">
+          <span className="dossier-eyebrow">Dossiê do projeto</span>
+          <h3 id="proposal-edital-title">{activeProposal.tituloProjeto || edital.titulo}</h3>
+          <div className="dossier-progress" aria-label={`Dossiê ${completion}% preenchido`}>
+            <div className="dossier-progress-track">
+              <span style={{ width: `${completion}%` }} />
+            </div>
+            <span>{completion}% preenchido</span>
+          </div>
+        </div>
         <div className="proposal-selector">
-          <label htmlFor="proposal-edital-select">Alternar Proposta:</label>
+          <label htmlFor="proposal-edital-select">Alternar dossiê</label>
           <select id="proposal-edital-select" value={proposalId} onChange={handleProposalSelect}>
-            {Object.keys(proposalsList).map(id => {
-              const ed = editais.find(e => e.id === id) || { titulo: id };
-              return <option key={id} value={id}>{ed.titulo}</option>;
+            {proposalIds.map(id => {
+              const proposal = normalizeProposal(proposalsList[id], id);
+              const sourceEdital = editais.find(item => item.id === id) || { titulo: id };
+              return <option key={id} value={id}>{proposal.tituloProjeto || sourceEdital.titulo}</option>;
             })}
           </select>
         </div>
       </div>
 
       <div className="proposal-wizard">
-        <nav className="wizard-nav">
-          {['objetivos', 'justificativa', 'metodologia', 'cronograma', 'orcamento'].map(step => (
+        <nav className="wizard-nav" aria-label="Seções do dossiê">
+          {WIZARD_STEPS.map(step => (
             <button
-              key={step}
-              className={`wizard-step ${wizardStep === step ? 'active' : ''}`}
-              data-step={step}
-              onClick={() => handleStepClick(step)}
+              key={step.id}
+              className={`wizard-step ${wizardStep === step.id ? 'active' : ''}`}
+              data-step={step.id}
+              onClick={() => handleStepClick(step.id)}
             >
-              {step.charAt(0).toUpperCase() + step.slice(1)}
+              {step.label}
             </button>
           ))}
         </nav>
 
         <div className="wizard-content glass">
+          {wizardStep === 'resumo' && (
+            <div className="dossier-overview">
+              <div className="dossier-form-grid">
+                <div className="form-group dossier-field-wide">
+                  <label htmlFor="project-title">Título do projeto</label>
+                  <input id="project-title" value={activeProposal.tituloProjeto} onChange={event => handleFieldChange('tituloProjeto', event.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="project-area">Área principal</label>
+                  <select id="project-area" value={activeProposal.areaProjeto} onChange={event => handleFieldChange('areaProjeto', event.target.value)}>
+                    {PROJECT_AREA_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="project-status">Status</label>
+                  <select id="project-status" value={activeProposal.statusProjeto} onChange={event => handleFieldChange('statusProjeto', event.target.value)}>
+                    {PROJECT_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </div>
+                <div className="form-group dossier-field-wide">
+                  <label htmlFor="project-idea">Ideia central</label>
+                  <textarea id="project-idea" rows="4" value={activeProposal.ideiaCentral} onChange={event => handleFieldChange('ideiaCentral', event.target.value)} />
+                </div>
+                <div className="form-group dossier-field-wide">
+                  <label htmlFor="project-synopsis">Sinopse</label>
+                  <textarea id="project-synopsis" rows="5" value={activeProposal.sinopse} onChange={event => handleFieldChange('sinopse', event.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="project-proponent">Proponente</label>
+                  <input id="project-proponent" value={activeProposal.proponente} onChange={event => handleFieldChange('proponente', event.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="project-owner">Responsável</label>
+                  <input id="project-owner" value={activeProposal.responsavel} onChange={event => handleFieldChange('responsavel', event.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="project-territory">Território</label>
+                  <input id="project-territory" value={activeProposal.territorio} onChange={event => handleFieldChange('territorio', event.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="project-duration">Duração em meses</label>
+                  <input id="project-duration" type="number" min="1" value={activeProposal.duracaoMeses} onChange={event => handleFieldChange('duracaoMeses', Number(event.target.value))} />
+                </div>
+                <div className="form-group dossier-field-wide">
+                  <label htmlFor="project-audience">Público-alvo</label>
+                  <input id="project-audience" value={activeProposal.publicoAlvo} onChange={event => handleFieldChange('publicoAlvo', event.target.value)} />
+                </div>
+              </div>
+            </div>
+          )}
+
           {showTextEditor && (
             <div className="text-editor-container">
               <textarea
                 id="rich-text-editor"
-                rows="10"
-                placeholder="Digite aqui o conteúdo da seção..."
+                rows="12"
+                placeholder="Escreva o conteúdo desta seção..."
                 value={editorValue}
                 onChange={handleTextChange}
               />
-              <button id="btn-generate-ai" onClick={handleGenerateAI}>Gerar com IA</button>
+              <button id="btn-generate-ai" onClick={handleGenerateAI}>
+                <Sparkles size={17} />
+                Gerar base com IA
+              </button>
             </div>
           )}
 
           {wizardStep === 'orcamento' && (
             <div className="budget-editor-container">
-              <h4>Planilha Orçamentária</h4>
-              <table className="budget-table">
-                <thead>
-                  <tr>
-                    <th>Descrição</th>
-                    <th>Valor (R$)</th>
-                    <th>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(activeProposal.budget || []).map(item => (
-                    <tr key={item.id} data-row-id={item.id}>
-                      <td>
-                        <input
-                          type="text"
-                          className="budget-desc"
-                          value={item.descricao}
-                          onChange={(e) => handleBudgetDescChange(item.id, e.target.value)}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          className="budget-val"
-                          value={item.valor}
-                          onChange={(e) => handleBudgetValChange(item.id, e.target.value)}
-                        />
-                        {item.valor < 0 && (
-                          <span className="validation-error">Valor não pode ser negativo</span>
-                        )}
-                      </td>
-                      <td>
-                        <button className="btn-delete-budget-row" data-id={item.id} onClick={() => handleDeleteBudgetRow(item.id)}>
-                          Excluir
-                        </button>
-                      </td>
-                    </tr>
+              <div className="budget-heading">
+                <div>
+                  <h4>Planejamento financeiro</h4>
+                  <span>{activeProposal.budget.length} itens cadastrados</span>
+                </div>
+                <strong>{money(budgetTotal)}</strong>
+              </div>
+
+              {Object.keys(budgetSummary).length > 0 && (
+                <div className="budget-summary" aria-label="Resumo financeiro por categoria">
+                  {Object.entries(budgetSummary).map(([category, total]) => (
+                    <div key={category} className="budget-summary-item">
+                      <span>{BUDGET_CATEGORY_OPTIONS.find(option => option.value === category)?.label || category}</span>
+                      <strong>{money(total)}</strong>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-              <button id="btn-add-budget-row" onClick={handleAddBudgetRow}>Adicionar Item</button>
-              {currentErrors.budget && (
-                <div className="error-message" id="budget-error-msg">{currentErrors.budget}</div>
+                </div>
               )}
+
+              <div className="budget-table-scroll">
+                <table className="budget-table budget-table--detailed">
+                  <thead>
+                    <tr>
+                      <th>Descrição</th>
+                      <th>Área financeira</th>
+                      <th>Status</th>
+                      <th>Unidade</th>
+                      <th>Qtd.</th>
+                      <th>Valor unitário</th>
+                      <th>Frequência</th>
+                      <th>Mês</th>
+                      <th>Ano</th>
+                      <th>Fonte</th>
+                      <th>Total</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeProposal.budget.map(rawItem => {
+                      const item = normalizeBudgetItem(rawItem);
+                      return (
+                        <tr key={item.id} data-row-id={item.id}>
+                          <td><input type="text" className="budget-desc" value={item.descricao} onChange={event => handleBudgetDescChange(item.id, event.target.value)} /></td>
+                          <td>
+                            <select className="budget-category" value={item.categoria} onChange={event => handleBudgetItemChange(item.id, 'categoria', event.target.value)}>
+                              {BUDGET_CATEGORY_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                            </select>
+                          </td>
+                          <td>
+                            <select className="budget-status" value={item.status} onChange={event => handleBudgetItemChange(item.id, 'status', event.target.value)}>
+                              {BUDGET_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                            </select>
+                          </td>
+                          <td>
+                            <select className="budget-unit" value={item.unidadeMedida} onChange={event => handleBudgetItemChange(item.id, 'unidadeMedida', event.target.value)}>
+                              {UNIT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                            </select>
+                          </td>
+                          <td><input type="number" min="0" step="0.01" className="budget-qty" value={item.quantidade} onChange={event => handleBudgetItemChange(item.id, 'quantidade', event.target.value)} /></td>
+                          <td>
+                            <input type="number" min="0" step="0.01" className="budget-val" value={item.valorUnitario} onChange={event => handleBudgetValChange(item.id, event.target.value)} />
+                            {(item.valorUnitario < 0 || item.valor < 0) && <span className="validation-error">Valor não pode ser negativo</span>}
+                          </td>
+                          <td>
+                            <select className="budget-frequency" value={item.frequencia} onChange={event => handleBudgetItemChange(item.id, 'frequencia', event.target.value)}>
+                              {FREQUENCY_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                            </select>
+                          </td>
+                          <td><input type="month" className="budget-month" value={item.mesReferencia} onChange={event => handleBudgetItemChange(item.id, 'mesReferencia', event.target.value)} /></td>
+                          <td><input type="number" min="2020" max="2100" className="budget-year" value={item.anoReferencia} onChange={event => handleBudgetItemChange(item.id, 'anoReferencia', event.target.value)} /></td>
+                          <td>
+                            <select className="budget-source" value={item.fonteRecurso} onChange={event => handleBudgetItemChange(item.id, 'fonteRecurso', event.target.value)}>
+                              {FUNDING_SOURCE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                            </select>
+                          </td>
+                          <td><output className="budget-row-total">{money(item.valor)}</output></td>
+                          <td><button className="btn-delete-budget-row" data-id={item.id} onClick={() => handleDeleteBudgetRow(item.id)}>Excluir</button></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <button id="btn-add-budget-row" onClick={handleAddBudgetRow}>Adicionar item financeiro</button>
+              {currentErrors.budget && <div className="error-message" id="budget-error-msg">{currentErrors.budget}</div>}
             </div>
           )}
 
           {wizardStep === 'cronograma' && (
             <div className="schedule-editor-container">
-              <h4>Cronograma de Atividades</h4>
+              <h4>Cronograma de atividades</h4>
               <table className="schedule-table">
                 <thead>
-                  <tr>
-                    <th>Atividade</th>
-                    <th>Data de Início</th>
-                    <th>Data de Fim</th>
-                    <th>Ações</th>
-                  </tr>
+                  <tr><th>Atividade</th><th>Data de início</th><th>Data de fim</th><th>Ações</th></tr>
                 </thead>
                 <tbody>
-                  {(activeProposal.schedule || []).map(item => {
-                    const isInvalid = new Date(item.fim) < new Date(item.inicio);
+                  {activeProposal.schedule.map(item => {
+                    const isInvalid = item.inicio && item.fim && new Date(item.fim) < new Date(item.inicio);
                     return (
                       <tr key={item.id} data-row-id={item.id}>
+                        <td><input type="text" className="schedule-task" value={item.tarefa} onChange={event => handleScheduleChange(item.id, 'tarefa', event.target.value)} /></td>
+                        <td><input type="date" className="schedule-start" value={item.inicio} onChange={event => handleScheduleChange(item.id, 'inicio', event.target.value)} /></td>
                         <td>
-                          <input
-                            type="text"
-                            className="schedule-task"
-                            value={item.tarefa}
-                            onChange={(e) => handleScheduleTaskChange(item.id, e.target.value)}
-                          />
+                          <input type="date" className="schedule-end" value={item.fim} onChange={event => handleScheduleChange(item.id, 'fim', event.target.value)} />
+                          {isInvalid && <span className="validation-error">Fim deve ser após Início</span>}
                         </td>
-                        <td>
-                          <input
-                            type="date"
-                            className="schedule-start"
-                            value={item.inicio}
-                            onChange={(e) => handleScheduleStartChange(item.id, e.target.value)}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="date"
-                            className="schedule-end"
-                            value={item.fim}
-                            onChange={(e) => handleScheduleEndChange(item.id, e.target.value)}
-                          />
-                          {isInvalid && (
-                            <span className="validation-error">Fim deve ser após Início</span>
-                          )}
-                        </td>
-                        <td>
-                          <button className="btn-delete-schedule-row" data-id={item.id} onClick={() => handleDeleteScheduleRow(item.id)}>
-                            Excluir
-                          </button>
-                        </td>
+                        <td><button className="btn-delete-schedule-row" data-id={item.id} onClick={() => handleDeleteScheduleRow(item.id)}>Excluir</button></td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-              <button id="btn-add-schedule-row" onClick={handleAddScheduleRow}>Adicionar Atividade</button>
-              {currentErrors.schedule && (
-                <div className="error-message" id="schedule-error-msg">{currentErrors.schedule}</div>
-              )}
+              <button id="btn-add-schedule-row" onClick={handleAddScheduleRow}>Adicionar atividade</button>
+              {currentErrors.schedule && <div className="error-message" id="schedule-error-msg">{currentErrors.schedule}</div>}
             </div>
           )}
         </div>
 
-        <div className="wizard-footer">
+        <div className="wizard-footer dossier-actions">
           <button id="btn-save-proposal" onClick={handleSaveProposal}>Salvar Proposta</button>
+          {savedAt && <span className="dossier-save-status">Salvo às {savedAt}</span>}
+          <button id="btn-generate-document" className="secondary-action" onClick={handleGenerateDocument}>
+            <FileText size={17} />
+            Gerar documento
+          </button>
+          <a className="dossier-export-link" href={`data:text/markdown;charset=utf-8,${encodeURIComponent(markdownContent)}`} download={`${fileName}.md`}>
+            <Download size={17} />
+            Baixar documento
+          </a>
+          <a className="dossier-export-link" href={`data:application/json;charset=utf-8,${encodeURIComponent(jsonContent)}`} download={`${fileName}.json`}>
+            <FileJson size={17} />
+            Exportar dados
+          </a>
         </div>
+
+        {documentContent && <pre id="dossier-document-output" className="dossier-document-output">{documentContent}</pre>}
       </div>
     </div>
   );

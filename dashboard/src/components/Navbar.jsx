@@ -10,7 +10,7 @@ import {
 
 const NAV_ITEMS = [
   { id: 'editais', label: 'Descoberta', mobileLabel: 'Descoberta', icon: Radar },
-  { id: 'propostas', label: 'Propostas', mobileLabel: 'Propostas', icon: FilePenLine },
+  { id: 'propostas', label: 'Propostas', mobileLabel: 'Dossiês', icon: FilePenLine },
   { id: 'kanban', label: 'Submissões', mobileLabel: 'Submissões', icon: Columns3 },
   { id: 'pos-aprovacao', label: 'Pós-Aprovação', mobileLabel: 'Aprovados', icon: BadgeCheck },
 ];
@@ -27,7 +27,7 @@ export default function Navbar({ activeTab, onTabChange, children, systemStats }
   const getHeaderTitle = (tabId) => {
     switch (tabId) {
       case 'editais': return 'Monitoramento e Descoberta de Editais';
-      case 'propostas': return 'Elaboração de Propostas com IA';
+      case 'propostas': return 'Dossiê e Escrita do Projeto';
       case 'kanban': return 'Gestão de Submissões e Prazos';
       case 'pos-aprovacao': return 'Acompanhamento Pós-Aprovação';
       default: return 'Nexus Editais';

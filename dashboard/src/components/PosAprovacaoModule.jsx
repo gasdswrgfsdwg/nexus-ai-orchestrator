@@ -1,4 +1,7 @@
 import React from 'react';
+import { BUDGET_CATEGORY_OPTIONS, UNIT_OPTIONS, normalizeBudgetItem } from '../data/projectModel';
+
+const optionLabel = (options, value) => options.find(option => option.value === value)?.label || value;
 
 export default function PosAprovacaoModule({
   projects,
@@ -33,12 +36,19 @@ export default function PosAprovacaoModule({
           ];
 
       const initialData = {
-        rubrics: budget.map(item => ({
+        rubrics: budget.map(rawItem => {
+          const item = normalizeBudgetItem(rawItem);
+          return {
           id: item.id,
           descricao: item.descricao || item.item,
           planejado: item.valor,
-          gasto: 0
-        })),
+          gasto: 0,
+          categoria: item.categoria,
+          unidadeMedida: item.unidadeMedida,
+          quantidade: item.quantidade,
+          statusFinanceiro: item.status,
+        };
+        }),
         transactions: [],
         realSchedule: [
           { id: 1, tarefa: 'Fase de Planejamento', planejado: '2026-11-30', real: '2026-12-05', status: 'atrasado' },
@@ -223,7 +233,14 @@ export default function PosAprovacaoModule({
                 const isOverflow = rub.gasto > rub.planejado;
                 return (
                   <div key={rub.id} className={`rubric-row ${isOverflow ? 'ledger-overflow' : ''}`} data-id={rub.id}>
-                    <span className="rubric-desc">{rub.descricao}</span>
+                    <div className="rubric-identity">
+                      <span className="rubric-desc">{rub.descricao}</span>
+                      {(rub.categoria || rub.unidadeMedida) && (
+                        <small>
+                          {optionLabel(BUDGET_CATEGORY_OPTIONS, rub.categoria)} · {rub.quantidade || 1} {optionLabel(UNIT_OPTIONS, rub.unidadeMedida)}
+                        </small>
+                      )}
+                    </div>
                     <span className="rubric-planejado">Planejado: R$ {rub.planejado.toLocaleString('pt-BR')}</span>
                     <span className="rubric-gasto">Gasto: R$ {rub.gasto.toLocaleString('pt-BR')}</span>
                     <span className="rubric-saldo">Saldo: R$ {(rub.planejado - rub.gasto).toLocaleString('pt-BR')}</span>
