@@ -3,10 +3,12 @@ import {
   buildAnuenciaMarkdown,
   buildProjectMarkdown,
   createBudgetItem,
+  createGoal,
   createTeamMember,
   getBudgetTotal,
   getDossierCompletion,
   normalizeBudgetItem,
+  normalizeGoal,
   normalizeProposal,
   normalizeTeamMember,
 } from '../../src/data/projectModel';
@@ -114,6 +116,37 @@ describe('Project team and anuência', () => {
     expect(anuencia).toContain('Cultura em Rede');
     expect(anuencia).toContain('Oficineiro(a) / Educador(a)');
     expect(anuencia).toContain('Marilândia, 15/08/2026.');
+  });
+});
+
+describe('Project goals (metas e indicadores)', () => {
+  it('creates a goal with safe defaults', () => {
+    const goal = createGoal(5);
+    expect(goal.id).toBe(5);
+    expect(goal.descricao).toBe('');
+    expect(goal.quantidade).toBe(1);
+  });
+
+  it('preserves unknown fields and coerces quantity when normalizing a goal', () => {
+    const goal = normalizeGoal({ id: 2, descricao: 'Realizar oficinas', quantidade: '8', campoLegado: 'manter' });
+    expect(goal.descricao).toBe('Realizar oficinas');
+    expect(goal.quantidade).toBe(8);
+    expect(goal.campoLegado).toBe('manter');
+  });
+
+  it('keeps goals on the normalized proposal and in the markdown export', () => {
+    const proposal = normalizeProposal({
+      editalId: 'e1',
+      tituloProjeto: 'Cultura em Rede',
+      goals: [{ id: 1, descricao: 'Formar agentes culturais', indicador: 'Participantes certificados', quantidade: 40, unidade: 'pessoas', meioVerificacao: 'Lista de presença' }],
+    }, 'e1');
+
+    expect(proposal.goals).toHaveLength(1);
+
+    const markdown = buildProjectMarkdown({ proposal, edital: { titulo: 'Edital Cultura 2026' } });
+    expect(markdown).toContain('## Metas e indicadores');
+    expect(markdown).toContain('Formar agentes culturais');
+    expect(markdown).toContain('Lista de presença');
   });
 });
 

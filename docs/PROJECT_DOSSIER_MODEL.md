@@ -15,6 +15,7 @@ O modelo canonico esta em `dashboard/src/data/projectModel.js`.
 | Responsabilidade | `proponente`, `responsavel` |
 | Abrangencia | `territorio`, `publicoAlvo`, `duracaoMeses` |
 | Texto tecnico | `objetivos`, `justificativa`, `metodologia` |
+| Metas | `goals` |
 | Equipe | `team` |
 | Execucao | `schedule` |
 | Financeiro | `budget` |
@@ -73,6 +74,10 @@ A lista `team` guarda os integrantes do projeto. Cada integrante possui:
 `normalizeTeamMember()` preenche os valores padrao e preserva campos desconhecidos de dados antigos.
 
 `buildAnuenciaMarkdown({ member, proposal, edital })` gera um Termo de Anuencia e Autorizacao de Participacao ja preenchido com os dados da pessoa e do projeto, pronto para baixar em Markdown. No painel, cada integrante tem o botao "Gerar anuencia" na etapa Equipe do dossie.
+
+## Metas e indicadores
+
+A lista `goals` guarda o quadro de metas. Cada meta possui `descricao`, `indicador`, `quantidade`, `unidade` e `meioVerificacao`. `normalizeGoal()` aplica padroes, converte `quantidade` para numero e preserva campos desconhecidos. As metas aparecem na etapa Metas do dossie e na secao "Metas e indicadores" do Markdown exportado. Esse padrao acompanha o que plataformas de gestao de editais oferecem (definicao de metas e indicadores para monitoramento da execucao).
 
 ## Portabilidade
 

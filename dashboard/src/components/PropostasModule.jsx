@@ -14,11 +14,13 @@ import {
   buildProjectMarkdown,
   createBudgetItem,
   createEmptyProposal,
+  createGoal,
   createTeamMember,
   getBudgetSummary,
   getBudgetTotal,
   getDossierCompletion,
   normalizeBudgetItem,
+  normalizeGoal,
   normalizeProposal,
   normalizeTeamMember,
 } from '../data/projectModel';
@@ -28,6 +30,7 @@ const WIZARD_STEPS = [
   { id: 'objetivos', label: 'Objetivos' },
   { id: 'justificativa', label: 'Justificativa' },
   { id: 'metodologia', label: 'Metodologia' },
+  { id: 'metas', label: 'Metas' },
   { id: 'equipe', label: 'Equipe' },
   { id: 'cronograma', label: 'Cronograma' },
   { id: 'orcamento', label: 'Financeiro' },
@@ -258,6 +261,31 @@ export default function PropostasModule({
     setAnuenciaMemberId(memberId);
   };
 
+  const handleAddGoal = () => {
+    updateProposal(current => ({
+      ...current,
+      goals: [...current.goals, createGoal(Date.now())],
+    }));
+  };
+
+  const handleDeleteGoal = (goalId) => {
+    updateProposal(current => ({
+      ...current,
+      goals: current.goals.filter(goal => goal.id !== goalId),
+    }));
+  };
+
+  const handleGoalChange = (goalId, field, value) => {
+    updateProposal(current => ({
+      ...current,
+      goals: current.goals.map(rawGoal => {
+        if (rawGoal.id !== goalId) return rawGoal;
+        const goal = normalizeGoal(rawGoal);
+        return { ...goal, [field]: field === 'quantidade' ? Number(value) : value };
+      }),
+    }));
+  };
+
   const handleGenerateDocument = () => {
     setDocumentContent(buildProjectMarkdown({ proposal: activeProposal, edital }));
   };
@@ -421,6 +449,51 @@ export default function PropostasModule({
                 <Sparkles size={17} />
                 Gerar base com IA
               </button>
+            </div>
+          )}
+
+          {wizardStep === 'metas' && (
+            <div className="goals-editor-container">
+              <div className="budget-heading">
+                <div>
+                  <h4>Metas e indicadores</h4>
+                  <span>{activeProposal.goals.length} metas cadastradas</span>
+                </div>
+              </div>
+              <p className="goals-hint">
+                Defina o que será entregue, como medir e a fonte de comprovação. Esse quadro acompanha a
+                execução do projeto e a prestação de contas.
+              </p>
+              <div className="budget-table-scroll">
+                <table className="goals-table">
+                  <thead>
+                    <tr>
+                      <th>Meta</th>
+                      <th>Indicador</th>
+                      <th>Quantidade</th>
+                      <th>Unidade</th>
+                      <th>Meio de verificação</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeProposal.goals.map(rawGoal => {
+                      const goal = normalizeGoal(rawGoal);
+                      return (
+                        <tr key={goal.id} data-row-id={goal.id}>
+                          <td><input type="text" className="goal-desc" value={goal.descricao} onChange={event => handleGoalChange(goal.id, 'descricao', event.target.value)} /></td>
+                          <td><input type="text" className="goal-indicator" value={goal.indicador} onChange={event => handleGoalChange(goal.id, 'indicador', event.target.value)} /></td>
+                          <td><input type="number" min="0" step="1" className="goal-qty" value={goal.quantidade} onChange={event => handleGoalChange(goal.id, 'quantidade', event.target.value)} /></td>
+                          <td><input type="text" className="goal-unit" value={goal.unidade} onChange={event => handleGoalChange(goal.id, 'unidade', event.target.value)} placeholder="pessoas, oficinas..." /></td>
+                          <td><input type="text" className="goal-verification" value={goal.meioVerificacao} onChange={event => handleGoalChange(goal.id, 'meioVerificacao', event.target.value)} placeholder="lista de presença, fotos..." /></td>
+                          <td><button className="btn-delete-goal-row" data-id={goal.id} onClick={() => handleDeleteGoal(goal.id)}>Excluir</button></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <button id="btn-add-goal-row" onClick={handleAddGoal}>Adicionar meta</button>
             </div>
           )}
 

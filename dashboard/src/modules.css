@@ -390,7 +390,8 @@
 
 .text-editor-container,
 .budget-editor-container,
-.schedule-editor-container {
+.schedule-editor-container,
+.goals-editor-container {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -399,10 +400,39 @@
 }
 
 .budget-table,
-.schedule-table {
+.schedule-table,
+.goals-table {
   width: 100%;
   min-width: 680px;
   border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.goals-table th,
+.goals-table td {
+  padding: 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  text-align: left;
+  vertical-align: top;
+}
+
+.goals-table th {
+  background: #111821;
+  color: #a9b6c8;
+  font-size: 0.72rem;
+}
+
+.module-propostas .btn-delete-goal-row {
+  min-width: 40px;
+  padding: 7px 10px;
+  border-color: rgba(var(--accent-danger-rgb), 0.35);
+  background: rgba(var(--accent-danger-rgb), 0.1);
+  color: var(--accent-danger);
+}
+
+.goals-hint {
+  margin: 0;
+  color: var(--text-secondary);
   font-size: 0.8rem;
 }
 

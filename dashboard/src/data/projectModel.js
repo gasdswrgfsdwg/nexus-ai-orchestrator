@@ -142,6 +142,21 @@ export const normalizeTeamMember = (member = {}) => ({
   anuencia: Boolean(member.anuencia),
 });
 
+export const createGoal = (id = Date.now()) => ({
+  id,
+  descricao: '',
+  indicador: '',
+  quantidade: 1,
+  unidade: '',
+  meioVerificacao: '',
+});
+
+export const normalizeGoal = (goal = {}) => ({
+  ...createGoal(goal.id ?? Date.now()),
+  ...goal,
+  quantidade: Number(goal.quantidade ?? 1),
+});
+
 export const createEmptyProposal = (editalId = '') => ({
   editalId,
   tituloProjeto: '',
@@ -158,6 +173,7 @@ export const createEmptyProposal = (editalId = '') => ({
   justificativa: '',
   metodologia: '',
   team: [],
+  goals: [],
   budget: [],
   schedule: [],
 });
@@ -167,6 +183,7 @@ export const normalizeProposal = (proposal, editalId = '') => ({
   ...proposal,
   editalId: proposal?.editalId || editalId,
   team: (proposal?.team || []).map(normalizeTeamMember),
+  goals: (proposal?.goals || []).map(normalizeGoal),
   budget: (proposal?.budget || []).map(normalizeBudgetItem),
   schedule: proposal?.schedule || [],
 });
@@ -213,10 +230,14 @@ export const buildProjectMarkdown = ({ proposal, edital }) => {
   const dossier = normalizeProposal(proposal, proposal?.editalId);
   const budget = dossier.budget.map(normalizeBudgetItem);
   const team = dossier.team.map(normalizeTeamMember);
+  const goals = dossier.goals.map(normalizeGoal);
   const title = dossier.tituloProjeto || edital?.titulo || 'Projeto sem título';
   const teamRows = team.length > 0
     ? team.map(member => `| ${escapeTableCell(member.nome) || '-'} | ${optionLabel(TEAM_ROLE_OPTIONS, member.funcao)} | ${optionLabel(TEAM_LINK_OPTIONS, member.vinculo)} | ${escapeTableCell(member.cpf) || '-'} | ${member.anuencia ? 'Registrada' : 'Pendente'} |`).join('\n')
     : '| Nenhum integrante cadastrado | - | - | - | - |';
+  const goalRows = goals.length > 0
+    ? goals.map(goal => `| ${escapeTableCell(goal.descricao) || '-'} | ${escapeTableCell(goal.indicador) || '-'} | ${goal.quantidade} | ${escapeTableCell(goal.unidade) || '-'} | ${escapeTableCell(goal.meioVerificacao) || '-'} |`).join('\n')
+    : '| Nenhuma meta cadastrada | - | - | - | - |';
   const budgetRows = budget.length > 0
     ? budget.map(item => `| ${escapeTableCell(item.descricao)} | ${optionLabel(BUDGET_CATEGORY_OPTIONS, item.categoria)} | ${optionLabel(UNIT_OPTIONS, item.unidadeMedida)} | ${item.quantidade} | ${money(item.valorUnitario)} | ${optionLabel(FREQUENCY_OPTIONS, item.frequencia)} | ${money(item.valor)} | ${optionLabel(BUDGET_STATUS_OPTIONS, item.status)} |`).join('\n')
     : '| Nenhum item cadastrado | - | - | - | - | - | - | - |';
@@ -256,6 +277,12 @@ ${dossier.justificativa || 'Não preenchida.'}
 ## Metodologia
 
 ${dossier.metodologia || 'Não preenchida.'}
+
+## Metas e indicadores
+
+| Meta | Indicador | Quantidade | Unidade | Meio de verificação |
+| --- | --- | ---: | --- | --- |
+${goalRows}
 
 ## Equipe
 
