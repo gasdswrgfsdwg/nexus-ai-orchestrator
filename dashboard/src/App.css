@@ -227,6 +227,7 @@
 /* ─── Main Content ──────────────────────────────────────────────── */
 .main-content {
   margin-left: var(--sidebar-width);
+  min-width: 0;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -331,6 +332,7 @@
 /* ─── Content Area ──────────────────────────────────────────────── */
 .content-area {
   flex: 1;
+  min-width: 0;
   padding: var(--space-xl);
   overflow-y: auto;
 }
@@ -497,7 +499,10 @@
   }
   
   .main-content {
+    width: 100%;
+    max-width: 100vw;
     margin-left: 0 !important; /* Conteúdo ocupa tela cheia */
+    overflow-x: hidden;
   }
   
   .header-right {
@@ -533,6 +538,8 @@
     position: fixed;
     left: 0;
     right: 0;
+    width: 100vw;
+    max-width: 100vw;
     bottom: 0;
     z-index: 120;
     display: grid;
