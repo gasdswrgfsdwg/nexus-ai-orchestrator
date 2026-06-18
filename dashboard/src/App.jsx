@@ -15,19 +15,36 @@ import {
 
 import './App.css';
 
+// Persistência local: o estado do app é salvo no navegador para sobreviver a
+// refresh/fechamento. Só vale no modo normal (sem appBridge de teste).
+const STORAGE_KEY = 'nexus-editais-state-v1';
+
+function loadPersisted() {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null; // JSON inválido / storage indisponível -> ignora
+  }
+}
+
 export default function App({ appBridge }) {
+  // Estado persistido (carregado uma vez, apenas fora do modo bridge).
+  const persisted = appBridge ? null : loadPersisted();
+
   // Central States
-  const [activeTab, setActiveTab] = useState(appBridge ? appBridge.state.activeModule : 'editais');
-  const [editais, setEditais] = useState(appBridge ? appBridge.state.editais : initialEditais);
-  const [userProfile, setUserProfile] = useState(appBridge ? appBridge.state.userProfile : initialUserProfile);
-  const [proposals, setProposals] = useState(appBridge ? appBridge.state.proposals : initialProposals);
-  const [projects, setProjects] = useState(appBridge ? appBridge.state.projects : initialProjects);
+  const [activeTab, setActiveTab] = useState(appBridge ? appBridge.state.activeModule : (persisted?.activeTab ?? 'editais'));
+  const [editais, setEditais] = useState(appBridge ? appBridge.state.editais : (persisted?.editais ?? initialEditais));
+  const [userProfile, setUserProfile] = useState(appBridge ? appBridge.state.userProfile : (persisted?.userProfile ?? initialUserProfile));
+  const [proposals, setProposals] = useState(appBridge ? appBridge.state.proposals : (persisted?.proposals ?? initialProposals));
+  const [projects, setProjects] = useState(appBridge ? appBridge.state.projects : (persisted?.projects ?? initialProjects));
 
   // Additional fields for testing/sync bridge
   const [viewportWidth, setViewportWidth] = useState(appBridge ? appBridge.state.viewportWidth : 1024);
   const [activeWizardStep, setActiveWizardStep] = useState(appBridge ? appBridge.state.activeWizardStep : 'objetivos');
   const [activeProposalEditalId, setActiveProposalEditalId] = useState(appBridge ? appBridge.state.activeProposalEditalId : 'e2');
-  const [posAprovacao, setPosAprovacao] = useState(appBridge ? appBridge.state.posAprovacao : {});
+  const [posAprovacao, setPosAprovacao] = useState(appBridge ? appBridge.state.posAprovacao : (persisted?.posAprovacao ?? {}));
   const [currentFilterCategory, setCurrentFilterCategory] = useState(appBridge ? appBridge.state.currentFilterCategory : 'todas');
   const [currentSearchTerm, setCurrentSearchTerm] = useState(appBridge ? appBridge.state.currentSearchTerm : '');
   const [errors, setErrors] = useState(appBridge ? appBridge.state.errors : {});
@@ -54,6 +71,18 @@ export default function App({ appBridge }) {
       };
     }
   }, [appBridge]);
+
+  // Salva o estado no localStorage sempre que algo relevante muda (modo normal).
+  useEffect(() => {
+    if (appBridge || typeof localStorage === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        activeTab, editais, userProfile, proposals, projects, posAprovacao,
+      }));
+    } catch {
+      // quota excedida / erro de serialização -> ignora silenciosamente
+    }
+  }, [appBridge, activeTab, editais, userProfile, proposals, projects, posAprovacao]);
 
   const renderModuleContent = () => {
     switch (activeTab) {

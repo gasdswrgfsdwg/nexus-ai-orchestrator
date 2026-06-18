@@ -88,10 +88,12 @@ export class ClaudeAdapter {
       fullPrompt = `Context:\n${JSON.stringify(task.context, null, 2)}\n\nTask:\n${task.prompt}`;
     }
 
-    args.push(fullPrompt);
-
+    // IMPORTANTE: o prompt vai via STDIN, não como argumento. Com shell:true,
+    // um prompt multi-linha passado como arg seria quebrado pelo shell (as
+    // quebras de linha virariam separadores de comando). `claude --print` lê
+    // o prompt do stdin, o que é robusto a quebras, espaços e acentos.
     const start = Date.now();
-    const result = await this.#runCommand(args, this.#timeoutMs);
+    const result = await this.#runCommand(args, this.#timeoutMs, fullPrompt);
     const durationMs = Date.now() - start;
 
     if (result.exitCode !== 0) {
@@ -128,7 +130,7 @@ export class ClaudeAdapter {
    * @param {number} timeoutMs
    * @returns {Promise<{stdout: string, stderr: string, exitCode: number}>}
    */
-  #runCommand(args, timeoutMs) {
+  #runCommand(args, timeoutMs, stdinData = null) {
     return new Promise((resolve, reject) => {
       const [cmd, ...flags] = args;
       const proc = spawn(cmd, flags, {
@@ -150,6 +152,13 @@ export class ClaudeAdapter {
       proc.on('error', (err) => {
         reject(new Error(`Failed to spawn "${cmd}": ${err.message}`));
       });
+
+      // Envia o prompt via stdin quando fornecido (robusto a quebras/acentos).
+      if (stdinData != null && proc.stdin) {
+        proc.stdin.on('error', () => {}); // ignora EPIPE se o processo fechar antes
+        proc.stdin.write(stdinData);
+        proc.stdin.end();
+      }
     });
   }
 }

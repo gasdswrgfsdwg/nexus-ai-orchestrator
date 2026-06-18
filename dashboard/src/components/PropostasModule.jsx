@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { gerarSecaoProposta } from '../services/aiService';
 
 export default function PropostasModule({
   proposals,
@@ -27,6 +28,10 @@ export default function PropostasModule({
   };
 
   const edital = editais.find(e => e.id === proposalId) || { titulo: 'Nenhum' };
+
+  // Estado da geração por IA real (só usado fora do modo bridge/teste).
+  const [generating, setGenerating] = useState(false);
+  const [aiStatus, setAiStatus] = useState(null);
 
   const handleProposalSelect = (e) => {
     const val = e.target.value;
@@ -65,6 +70,25 @@ export default function PropostasModule({
     }
   };
 
+  // Escreve o texto da seção ativa, tanto no modo bridge quanto no modo normal.
+  const setSecaoText = (text) => {
+    if (appBridge) {
+      const prop = appBridge.state.proposals[proposalId];
+      if (prop) {
+        prop[wizardStep] = text;
+      }
+      appBridge.render();
+    } else {
+      setProposals(prev => ({
+        ...prev,
+        [proposalId]: {
+          ...(prev[proposalId] || activeProposal),
+          [wizardStep]: text
+        }
+      }));
+    }
+  };
+
   const handleGenerateAI = () => {
     let generated = '';
     if (wizardStep === 'objetivos') {
@@ -74,21 +98,25 @@ export default function PropostasModule({
     } else if (wizardStep === 'metodologia') {
       generated = 'Texto gerado automaticamente por IA para a seção Metodologia: A metodologia compreende 4 fases principais de workshop e mentoria.';
     }
-    
-    if (appBridge) {
-      const prop = appBridge.state.proposals[proposalId];
-      if (prop) {
-        prop[wizardStep] = generated;
-      }
-      appBridge.render();
-    } else {
-      setProposals(prev => ({
-        ...prev,
-        [proposalId]: {
-          ...activeProposal,
-          [wizardStep]: generated
+
+    // 1) Coloca um rascunho imediatamente (comportamento síncrono preservado).
+    setSecaoText(generated);
+
+    // 2) Fora do modo de teste (bridge), tenta a IA REAL por cima e substitui
+    //    o rascunho quando a resposta chega. Se falhar (ex.: sem backend no
+    //    GitHub Pages), mantém o rascunho.
+    if (!appBridge && generated) {
+      setGenerating(true);
+      setAiStatus('Gerando com IA real…');
+      gerarSecaoProposta({ secao: wizardStep, edital }).then((r) => {
+        if (r.ok) {
+          setSecaoText(r.text);
+          setAiStatus('✓ Gerado com IA real (Claude)');
+        } else {
+          setAiStatus('IA real indisponível — mantido rascunho padrão.');
         }
-      }));
+        setGenerating(false);
+      });
     }
   };
 
@@ -395,7 +423,10 @@ export default function PropostasModule({
                 value={editorValue}
                 onChange={handleTextChange}
               />
-              <button id="btn-generate-ai" onClick={handleGenerateAI}>Gerar com IA</button>
+              <button id="btn-generate-ai" onClick={handleGenerateAI} disabled={generating}>
+                {generating ? 'Gerando…' : 'Gerar com IA'}
+              </button>
+              {aiStatus && <span className="ai-status">{aiStatus}</span>}
             </div>
           )}
 

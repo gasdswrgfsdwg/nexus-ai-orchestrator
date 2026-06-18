@@ -466,6 +466,68 @@ app.post('/api/adapters/detect', async (_req, res) => {
   res.json({ success: true, data: results });
 });
 
+/**
+ * Monta o prompt enviado ao Claude para cada tipo de geracao do dashboard.
+ * @param {string} kind
+ * @param {Record<string, any>} p
+ * @returns {string|null}
+ */
+function buildAiPrompt(kind, p) {
+  if (kind === 'secao-proposta') {
+    const reqs = {
+      objetivos: 'objetivo geral e 3 a 5 objetivos especificos, claros e mensuraveis',
+      justificativa: 'relevancia, contexto social/cultural e alinhamento com o edital',
+      metodologia: 'etapas de execucao, abordagem e cronograma macro',
+    };
+    const secao = p.secao || 'objetivos';
+    return [
+      'Voce e um especialista em elaboracao de projetos para editais publicos e culturais no Brasil.',
+      `Escreva o texto da secao "${secao}" de uma proposta para o edital abaixo.`,
+      '',
+      `Titulo do edital: ${p.titulo || 'N/D'}`,
+      `Orgao: ${p.orgao || 'N/D'}`,
+      `Categoria: ${p.categoria || 'N/D'}`,
+      `Valor disponivel: R$ ${p.valor ?? 'N/D'}`,
+      '',
+      `Conteudo esperado: ${reqs[secao] || 'conteudo pertinente a secao'}.`,
+      '',
+      'Escreva APENAS o texto da secao, em portugues do Brasil, pronto para colar na proposta.',
+      'Sem titulos e sem markdown. De 2 a 4 paragrafos.',
+    ].join('\n');
+  }
+  if (kind === 'analise-edital') {
+    return [
+      'Voce e um analista de editais. Leia o edital abaixo e produza um resumo estruturado.',
+      '',
+      `Texto/descricao do edital:\n${p.texto || p.titulo || ''}`,
+      '',
+      'Responda em portugues com: Objetivo; Quem pode se inscrever; Documentos exigidos;',
+      'Prazos; Valor; Pontos de atencao. Use topicos curtos e objetivos.',
+    ].join('\n');
+  }
+  return null;
+}
+
+/**
+ * POST /api/ai/generate
+ * Geracao de texto com IA REAL (Claude Code CLI) para o dashboard de editais.
+ * Body: { kind: 'secao-proposta' | 'analise-edital', payload: {...} }
+ */
+app.post('/api/ai/generate', async (req, res) => {
+  const { kind, payload = {} } = req.body || {};
+  const prompt = buildAiPrompt(kind, payload);
+  if (!prompt) {
+    return res.status(400).json({ success: false, error: `kind invalido: ${kind}` });
+  }
+  try {
+    const result = await adapters.claude.execute({ id: `ai-${Date.now()}`, prompt });
+    res.json({ success: true, text: (result.output || '').trim(), durationMs: result.durationMs });
+  } catch (err) {
+    // Claude indisponivel/erro -> 502; o front faz fallback para o texto mock.
+    res.status(502).json({ success: false, error: err.message });
+  }
+});
+
 // ─── 404 handler ─────────────────────────────────────────────────────
 app.use((_req, res) => {
   res.status(404).json({
@@ -482,6 +544,7 @@ app.use((_req, res) => {
       'GET  /api/status',
       'GET  /api/adapters',
       'POST /api/adapters/detect',
+      'POST /api/ai/generate',
       'WS   /ws',
     ],
   });
