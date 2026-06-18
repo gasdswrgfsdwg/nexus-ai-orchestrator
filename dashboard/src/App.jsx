@@ -1,0 +1,152 @@
+import React, { useState, useEffect } from 'react';
+import Navbar from './components/Navbar';
+import EditaisModule from './components/EditaisModule';
+import PropostasModule from './components/PropostasModule';
+import ProjetosModule from './components/ProjetosModule';
+import PosAprovacaoModule from './components/PosAprovacaoModule';
+import { flushSync } from 'react-dom';
+
+import { 
+  initialEditais, 
+  initialUserProfile, 
+  initialProposals, 
+  initialProjects 
+} from './data/editaisMockData';
+
+import './App.css';
+
+export default function App({ appBridge }) {
+  // Central States
+  const [activeTab, setActiveTab] = useState(appBridge ? appBridge.state.activeModule : 'editais');
+  const [editais, setEditais] = useState(appBridge ? appBridge.state.editais : initialEditais);
+  const [userProfile, setUserProfile] = useState(appBridge ? appBridge.state.userProfile : initialUserProfile);
+  const [proposals, setProposals] = useState(appBridge ? appBridge.state.proposals : initialProposals);
+  const [projects, setProjects] = useState(appBridge ? appBridge.state.projects : initialProjects);
+
+  // Additional fields for testing/sync bridge
+  const [viewportWidth, setViewportWidth] = useState(appBridge ? appBridge.state.viewportWidth : 1024);
+  const [activeWizardStep, setActiveWizardStep] = useState(appBridge ? appBridge.state.activeWizardStep : 'objetivos');
+  const [activeProposalEditalId, setActiveProposalEditalId] = useState(appBridge ? appBridge.state.activeProposalEditalId : 'e2');
+  const [posAprovacao, setPosAprovacao] = useState(appBridge ? appBridge.state.posAprovacao : {});
+  const [currentFilterCategory, setCurrentFilterCategory] = useState(appBridge ? appBridge.state.currentFilterCategory : 'todas');
+  const [currentSearchTerm, setCurrentSearchTerm] = useState(appBridge ? appBridge.state.currentSearchTerm : '');
+  const [errors, setErrors] = useState(appBridge ? appBridge.state.errors : {});
+
+  // Register state synchronization callback on the testing bridge
+  useEffect(() => {
+    if (appBridge) {
+      appBridge.updateReactState = (newState) => {
+        // Use flushSync to force synchronous updates to the JSDOM document
+        flushSync(() => {
+          setActiveTab(newState.activeModule);
+          setEditais([...newState.editais]);
+          setUserProfile({ ...newState.userProfile });
+          setProposals({ ...newState.proposals });
+          setProjects([...newState.projects]);
+          setViewportWidth(newState.viewportWidth);
+          setActiveWizardStep(newState.activeWizardStep);
+          setActiveProposalEditalId(newState.activeProposalEditalId);
+          setPosAprovacao({ ...newState.posAprovacao });
+          setCurrentFilterCategory(newState.currentFilterCategory);
+          setCurrentSearchTerm(newState.currentSearchTerm);
+          setErrors({ ...newState.errors });
+        });
+      };
+    }
+  }, [appBridge]);
+
+  const renderModuleContent = () => {
+    switch (activeTab) {
+      case 'editais':
+        return (
+          <EditaisModule 
+            editais={editais} 
+            setEditais={setEditais} 
+            userProfile={userProfile} 
+            setUserProfile={setUserProfile}
+            currentFilterCategory={currentFilterCategory}
+            setCurrentFilterCategory={setCurrentFilterCategory}
+            currentSearchTerm={currentSearchTerm}
+            setCurrentSearchTerm={setCurrentSearchTerm}
+            activeProposalEditalId={activeProposalEditalId}
+            setActiveProposalEditalId={setActiveProposalEditalId}
+            setActiveTab={setActiveTab}
+            appBridge={appBridge}
+          />
+        );
+      case 'propostas':
+        return (
+          <PropostasModule 
+            proposals={proposals} 
+            setProposals={setProposals} 
+            editais={editais}
+            activeProposalEditalId={activeProposalEditalId}
+            setActiveProposalEditalId={setActiveProposalEditalId}
+            activeWizardStep={activeWizardStep}
+            setActiveWizardStep={setActiveWizardStep}
+            errors={errors}
+            setErrors={setErrors}
+            appBridge={appBridge}
+          />
+        );
+      case 'kanban':
+        return (
+          <ProjetosModule 
+            projects={projects} 
+            setProjects={setProjects}
+            appBridge={appBridge}
+          />
+        );
+      case 'pos-aprovacao':
+        return (
+          <PosAprovacaoModule 
+            projects={projects} 
+            setProjects={setProjects}
+            proposals={proposals}
+            posAprovacao={posAprovacao}
+            setPosAprovacao={setPosAprovacao}
+            appBridge={appBridge}
+          />
+        );
+      default:
+        return (
+          <EditaisModule 
+            editais={editais} 
+            setEditais={setEditais} 
+            userProfile={userProfile} 
+            setUserProfile={setUserProfile}
+            currentFilterCategory={currentFilterCategory}
+            setCurrentFilterCategory={setCurrentFilterCategory}
+            currentSearchTerm={currentSearchTerm}
+            setCurrentSearchTerm={setCurrentSearchTerm}
+            activeProposalEditalId={activeProposalEditalId}
+            setActiveProposalEditalId={setActiveProposalEditalId}
+            setActiveTab={setActiveTab}
+            appBridge={appBridge}
+          />
+        );
+    }
+  };
+
+  const handleTabChange = (tabId) => {
+    if (appBridge) {
+      appBridge.state.activeModule = tabId;
+      appBridge.render();
+    } else {
+      setActiveTab(tabId);
+    }
+  };
+
+  return (
+    <Navbar 
+      activeTab={activeTab} 
+      onTabChange={handleTabChange}
+      systemStats={{
+        activeProjects: projects.length,
+        profileCompleted: !!userProfile.area
+      }}
+    >
+      {renderModuleContent()}
+    </Navbar>
+  );
+}

@@ -1,0 +1,36 @@
+{
+  "name": "nexus-ai-orchestrator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema multi-agente que orquestra Gemini CLI, Claude, ChatGPT e modelos locais via pasta compartilhada (Blackboard Pattern)",
+  "type": "module",
+  "workspaces": [
+    "orchestrator",
+    "dashboard"
+  ],
+  "scripts": {
+    "start": "npm run start:orchestrator & npm run start:dashboard",
+    "start:orchestrator": "npm run start --workspace=orchestrator",
+    "start:dashboard": "npm run dev --workspace=dashboard",
+    "setup": "powershell -ExecutionPolicy Bypass -File ./scripts/setup.ps1",
+    "health-check": "powershell -ExecutionPolicy Bypass -File ./scripts/health-check.ps1",
+    "init-github": "powershell -ExecutionPolicy Bypass -File ./scripts/init-github-repo.ps1",
+    "test:orchestrator": "npm run test --workspace=orchestrator",
+    "test:e2e": "vitest run dashboard/tests/e2e"
+  },
+  "keywords": [
+    "multi-agent",
+    "ai-orchestration",
+    "gemini",
+    "claude",
+    "chatgpt",
+    "ollama",
+    "blackboard-pattern"
+  ],
+  "author": "Nexus Digital",
+  "license": "MIT",
+  "devDependencies": {
+    "jsdom": "^29.1.1",
+    "vitest": "^4.1.9"
+  }
+}

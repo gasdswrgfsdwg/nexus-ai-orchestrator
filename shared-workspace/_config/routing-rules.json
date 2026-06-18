@@ -1,0 +1,217 @@
+{
+  "version": "1.0",
+  "description": "Regras de roteamento para distribuição de tarefas entre agentes de IA",
+  "default_strategy": "capability-match",
+  "fallback_strategy": "round-robin",
+  "agents": {
+    "gemini-cli": {
+      "id": "gemini-cli",
+      "name": "Gemini CLI",
+      "type": "cloud-cli",
+      "enabled": true,
+      "capabilities": [
+        "code-generation",
+        "code-review",
+        "research",
+        "analysis",
+        "documentation",
+        "refactoring",
+        "testing",
+        "architecture"
+      ],
+      "limits": {
+        "max_concurrent_tasks": 1,
+        "max_tokens_per_request": 1000000,
+        "cooldown_seconds": 5
+      },
+      "priority": 1,
+      "detection": {
+        "method": "command",
+        "command": "gemini --version"
+      }
+    },
+    "claude-code": {
+      "id": "claude-code",
+      "name": "Claude Code",
+      "type": "cloud-cli",
+      "enabled": true,
+      "capabilities": [
+        "code-generation",
+        "code-review",
+        "debugging",
+        "refactoring",
+        "testing",
+        "architecture",
+        "documentation",
+        "analysis"
+      ],
+      "limits": {
+        "max_concurrent_tasks": 1,
+        "max_tokens_per_request": 200000,
+        "cooldown_seconds": 5
+      },
+      "priority": 1,
+      "detection": {
+        "method": "command",
+        "command": "claude --version"
+      }
+    },
+    "chatgpt-desktop": {
+      "id": "chatgpt-desktop",
+      "name": "ChatGPT Desktop",
+      "type": "cloud-app",
+      "enabled": true,
+      "capabilities": [
+        "research",
+        "analysis",
+        "documentation",
+        "creative-writing",
+        "planning"
+      ],
+      "limits": {
+        "max_concurrent_tasks": 1,
+        "max_tokens_per_request": 128000,
+        "cooldown_seconds": 10
+      },
+      "priority": 2,
+      "detection": {
+        "method": "process",
+        "process_name": "ChatGPT"
+      }
+    },
+    "ollama": {
+      "id": "ollama",
+      "name": "Ollama (Local)",
+      "type": "local-api",
+      "enabled": true,
+      "capabilities": [
+        "code-generation",
+        "analysis",
+        "documentation",
+        "creative-writing"
+      ],
+      "limits": {
+        "max_concurrent_tasks": 1,
+        "max_tokens_per_request": 32000,
+        "cooldown_seconds": 2
+      },
+      "priority": 3,
+      "detection": {
+        "method": "http",
+        "url": "http://localhost:11434/api/tags"
+      }
+    },
+    "lm-studio": {
+      "id": "lm-studio",
+      "name": "LM Studio (Local)",
+      "type": "local-api",
+      "enabled": false,
+      "capabilities": [
+        "code-generation",
+        "analysis",
+        "documentation"
+      ],
+      "limits": {
+        "max_concurrent_tasks": 1,
+        "max_tokens_per_request": 32000,
+        "cooldown_seconds": 2
+      },
+      "priority": 3,
+      "detection": {
+        "method": "http",
+        "url": "http://localhost:1234/v1/models"
+      }
+    }
+  },
+  "task_types": {
+    "code-generation": {
+      "description": "Gerar código novo a partir de especificações",
+      "preferred_agents": ["gemini-cli", "claude-code"],
+      "min_agents": 1,
+      "parallel_allowed": true
+    },
+    "code-review": {
+      "description": "Revisar código existente para qualidade e segurança",
+      "preferred_agents": ["claude-code", "gemini-cli"],
+      "min_agents": 1,
+      "parallel_allowed": true
+    },
+    "research": {
+      "description": "Pesquisa de mercado, tecnologia ou informações",
+      "preferred_agents": ["gemini-cli", "chatgpt-desktop"],
+      "min_agents": 1,
+      "parallel_allowed": true
+    },
+    "analysis": {
+      "description": "Análise de dados, mercado, SWOT, etc.",
+      "preferred_agents": ["gemini-cli", "claude-code", "chatgpt-desktop"],
+      "min_agents": 1,
+      "parallel_allowed": true
+    },
+    "documentation": {
+      "description": "Gerar ou atualizar documentação técnica",
+      "preferred_agents": ["chatgpt-desktop", "gemini-cli"],
+      "min_agents": 1,
+      "parallel_allowed": false
+    },
+    "architecture": {
+      "description": "Design de arquitetura de software e sistemas",
+      "preferred_agents": ["claude-code", "gemini-cli"],
+      "min_agents": 1,
+      "parallel_allowed": false
+    },
+    "testing": {
+      "description": "Gerar testes unitários e de integração",
+      "preferred_agents": ["claude-code", "gemini-cli"],
+      "min_agents": 1,
+      "parallel_allowed": false
+    }
+  },
+  "routing_rules": [
+    {
+      "name": "high-priority-dual",
+      "description": "Tarefas de alta prioridade são enviadas para 2 IAs simultaneamente",
+      "condition": {
+        "priority": "high"
+      },
+      "action": {
+        "strategy": "parallel",
+        "max_agents": 2,
+        "merge_results": true
+      }
+    },
+    {
+      "name": "code-tasks-cloud-first",
+      "description": "Tarefas de código preferem IAs cloud (maior capacidade)",
+      "condition": {
+        "task_type": ["code-generation", "code-review", "architecture"]
+      },
+      "action": {
+        "strategy": "capability-match",
+        "prefer_type": "cloud-cli"
+      }
+    },
+    {
+      "name": "privacy-sensitive-local",
+      "description": "Tarefas sensíveis rodam apenas em modelos locais",
+      "condition": {
+        "tags": ["private", "sensitive", "confidential"]
+      },
+      "action": {
+        "strategy": "capability-match",
+        "prefer_type": "local-api",
+        "restrict_to_type": "local-api"
+      }
+    },
+    {
+      "name": "fallback-to-any",
+      "description": "Se nenhuma regra aplicar, use round-robin entre todos disponíveis",
+      "condition": {
+        "default": true
+      },
+      "action": {
+        "strategy": "round-robin"
+      }
+    }
+  ]
+}

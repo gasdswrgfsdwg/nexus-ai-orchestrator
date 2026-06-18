@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+*.bin
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+.agents/
+.github/workflows/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Shared workspace runtime data (keep structure, ignore runtime files)
+shared-workspace/_inbox/*.json
+shared-workspace/_outbox/*.json
+shared-workspace/_logs/*.json
+shared-workspace/_logs/*.log
+shared-workspace/_status/agents-status.json
+shared-workspace/_config/health-report.json
+!shared-workspace/_inbox/.gitkeep
+!shared-workspace/_outbox/.gitkeep
+!shared-workspace/_logs/.gitkeep
+!shared-workspace/_status/.gitkeep
+
+# Keys and secrets
+*.pem
+*.key

@@ -1,0 +1,331 @@
+/* ================================================================
+   OrchestrationFlow
+   ================================================================ */
+
+.flow-container {
+  padding: var(--space-xl);
+  overflow: hidden;
+}
+
+.flow-diagram {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-height: 180px;
+  padding: var(--space-lg) 0;
+}
+
+/* ─── Flow Layers ───────────────────────────────────────────────── */
+.flow-layer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  flex-shrink: 0;
+}
+
+.flow-layer--source,
+.flow-layer--output {
+  width: 130px;
+}
+
+.flow-layer--core {
+  width: 170px;
+}
+
+.flow-layer--agents {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-md);
+  width: 260px;
+}
+
+/* ─── Flow Nodes ────────────────────────────────────────────────── */
+.flow-node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-md) var(--space-sm);
+  text-align: center;
+  animation: scaleIn 0.5s ease-out backwards;
+}
+
+.flow-node--user { animation-delay: 0s; }
+.flow-node--orchestrator { animation-delay: 0.15s; }
+.flow-node--agent { animation-delay: 0.3s; }
+.flow-node--result { animation-delay: 0.45s; }
+
+.flow-node-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 56px;
+  height: 56px;
+  transform: translate(-50%, -60%);
+  border-radius: 50%;
+  border: 1.5px solid rgba(var(--accent-primary-rgb), 0.3);
+}
+
+.flow-node-ring--core {
+  width: 64px;
+  height: 64px;
+  border-color: rgba(var(--accent-primary-rgb), 0.5);
+  animation: glow 3s ease-in-out infinite;
+}
+
+.flow-node-ring--agent {
+  border-color: var(--node-color, var(--accent-primary));
+  opacity: 0.4;
+}
+
+.flow-node-ring--result {
+  border-color: rgba(var(--accent-secondary-rgb), 0.4);
+}
+
+.flow-node-icon {
+  font-size: 1.6rem;
+  z-index: 1;
+}
+
+.flow-node-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-primary);
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.flow-node-sublabel {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  z-index: 1;
+}
+
+.flow-node-status {
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+}
+
+.flow-node-status--online {
+  color: var(--accent-secondary);
+  background: rgba(var(--accent-secondary-rgb), 0.1);
+}
+
+.flow-node-status--busy {
+  color: var(--accent-warning);
+  background: rgba(var(--accent-warning-rgb), 0.1);
+}
+
+.flow-node-status--offline {
+  color: var(--accent-danger);
+  background: rgba(var(--accent-danger-rgb), 0.1);
+}
+
+.flow-node--offline {
+  opacity: 0.4;
+}
+
+.flow-node-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 90px;
+  height: 90px;
+  transform: translate(-50%, -60%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(var(--accent-primary-rgb), 0.12) 0%, transparent 70%);
+  animation: pulse 3s ease-in-out infinite;
+}
+
+.flow-node-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 56px;
+  height: 56px;
+  transform: translate(-50%, -60%);
+  border-radius: 50%;
+  border: 1px solid rgba(var(--accent-primary-rgb), 0.3);
+  animation: pulseRing 3s ease-out infinite;
+}
+
+/* ─── Flow Connections ──────────────────────────────────────────── */
+.flow-connection {
+  position: relative;
+  flex: 1;
+  min-width: 60px;
+  height: 3px;
+  display: flex;
+  align-items: center;
+}
+
+.flow-line {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg,
+    rgba(var(--accent-primary-rgb), 0.1),
+    rgba(var(--accent-primary-rgb), 0.4),
+    rgba(var(--accent-primary-rgb), 0.1)
+  );
+}
+
+.flow-connection--active .flow-line {
+  background: linear-gradient(90deg,
+    rgba(var(--accent-primary-rgb), 0.2),
+    rgba(var(--accent-primary-rgb), 0.6),
+    rgba(var(--accent-primary-rgb), 0.2)
+  );
+}
+
+/* Animated flowing dots */
+.flow-dot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px rgba(var(--accent-primary-rgb), 0.8);
+  animation: flowDotHorizontal 2.5s linear infinite;
+}
+
+.flow-dot--1 { animation-delay: 0s; }
+.flow-dot--2 { animation-delay: 0.8s; }
+.flow-dot--3 { animation-delay: 1.6s; }
+
+@keyframes flowDotHorizontal {
+  0% { left: 0; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { left: calc(100% - 6px); opacity: 0; }
+}
+
+/* ─── Fan Connections (Orchestrator → Agents) ───────────────────── */
+.flow-fan-connections {
+  position: relative;
+  flex: 1;
+  min-width: 50px;
+  height: 160px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+}
+
+.flow-fan-line {
+  position: relative;
+  height: 1px;
+  width: 100%;
+}
+
+.flow-fan-track {
+  width: 100%;
+  height: 1px;
+  background: rgba(var(--accent-primary-rgb), 0.2);
+}
+
+.flow-fan-line--active .flow-fan-track {
+  background: rgba(var(--accent-primary-rgb), 0.4);
+}
+
+.flow-fan-line--inactive .flow-fan-track {
+  background: rgba(var(--accent-danger-rgb), 0.15);
+  border-style: dashed;
+}
+
+.flow-fan-dot {
+  position: absolute;
+  top: -2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-secondary);
+  box-shadow: 0 0 6px rgba(var(--accent-secondary-rgb), 0.8);
+  animation: flowDotHorizontal 2s linear infinite;
+}
+
+.flow-fan-dot--a { animation-delay: 0s; }
+.flow-fan-dot--b { animation-delay: 1s; }
+
+.flow-fan-line--0 .flow-fan-dot { animation-delay: 0s; }
+.flow-fan-line--1 .flow-fan-dot { animation-delay: 0.3s; }
+.flow-fan-line--2 .flow-fan-dot { animation-delay: 0.6s; }
+.flow-fan-line--3 .flow-fan-dot { animation-delay: 0.9s; }
+
+/* ─── Legend ────────────────────────────────────────────────────── */
+.flow-legend {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-xl);
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.flow-legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.flow-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.flow-legend-dot--active {
+  background: var(--accent-secondary);
+  box-shadow: 0 0 6px rgba(var(--accent-secondary-rgb), 0.5);
+}
+
+.flow-legend-dot--busy {
+  background: var(--accent-warning);
+  box-shadow: 0 0 6px rgba(var(--accent-warning-rgb), 0.5);
+}
+
+.flow-legend-dot--offline {
+  background: var(--accent-danger);
+  opacity: 0.5;
+}
+
+/* ─── Responsive ────────────────────────────────────────────────── */
+@media (max-width: 800px) {
+  .flow-diagram {
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .flow-connection {
+    min-width: auto;
+    min-height: 30px;
+    width: 1px;
+    height: auto;
+    flex-direction: column;
+  }
+
+  .flow-line {
+    width: 1px;
+    height: 100%;
+    min-height: 30px;
+  }
+
+  .flow-fan-connections {
+    min-width: auto;
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    gap: var(--space-sm);
+  }
+
+  .flow-layer--agents {
+    width: 100%;
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

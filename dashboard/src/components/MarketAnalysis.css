@@ -1,0 +1,450 @@
+/* ================================================================
+   MarketAnalysis
+   ================================================================ */
+
+.market-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+/* ─── Overview ──────────────────────────────────────────────────── */
+.market-overview {
+  padding: var(--space-xl);
+}
+
+.market-section-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-bright);
+  margin-bottom: var(--space-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.market-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border-subtle), transparent);
+  margin-left: var(--space-md);
+}
+
+.overview-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-md);
+}
+
+.overview-card {
+  text-align: center;
+  padding: var(--space-lg);
+  background: rgba(var(--accent-primary-rgb), 0.04);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(var(--accent-primary-rgb), 0.08);
+  transition: all var(--transition-base);
+}
+
+.overview-card:hover {
+  border-color: rgba(var(--accent-primary-rgb), 0.2);
+  transform: translateY(-2px);
+}
+
+.overview-value {
+  display: block;
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--text-bright);
+  margin-bottom: var(--space-xs);
+}
+
+.overview-value--accent {
+  color: var(--accent-primary);
+}
+
+.overview-value--secondary {
+  color: var(--accent-secondary);
+}
+
+.overview-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ─── SWOT Grid ─────────────────────────────────────────────────── */
+.swot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-md);
+}
+
+.swot-card {
+  padding: var(--space-lg);
+  position: relative;
+  overflow: hidden;
+}
+
+.swot-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+
+.swot-card--strengths::before {
+  background: linear-gradient(90deg, var(--accent-secondary), transparent);
+}
+
+.swot-card--weaknesses::before {
+  background: linear-gradient(90deg, var(--accent-warning), transparent);
+}
+
+.swot-card--opportunities::before {
+  background: linear-gradient(90deg, var(--accent-primary), transparent);
+}
+
+.swot-card--threats::before {
+  background: linear-gradient(90deg, var(--accent-danger), transparent);
+}
+
+.swot-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.swot-icon {
+  font-size: 1.2rem;
+}
+
+.swot-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-bright);
+}
+
+.swot-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.swot-item {
+  position: relative;
+  padding-left: var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.swot-item::before {
+  content: '›';
+  position: absolute;
+  left: 0;
+  color: var(--accent-primary);
+  font-weight: 700;
+}
+
+.swot-card--strengths .swot-item::before { color: var(--accent-secondary); }
+.swot-card--weaknesses .swot-item::before { color: var(--accent-warning); }
+.swot-card--opportunities .swot-item::before { color: var(--accent-primary); }
+.swot-card--threats .swot-item::before { color: var(--accent-danger); }
+
+/* ─── Metrics Bars ──────────────────────────────────────────────── */
+.market-metrics {
+  padding: var(--space-xl);
+}
+
+.metrics-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.metric-bar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.metric-bar-label {
+  width: 180px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.metric-bar-track {
+  flex: 1;
+  height: 28px;
+  background: rgba(var(--accent-primary-rgb), 0.06);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  position: relative;
+}
+
+.metric-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: var(--space-sm);
+  animation: barGrow 1s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+  position: relative;
+}
+
+.metric-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes barGrow {
+  from { width: 0; }
+}
+
+.metric-bar-value {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--text-bright);
+  z-index: 1;
+  position: relative;
+}
+
+/* ─── Competitors Table ─────────────────────────────────────────── */
+.competitors-section {
+  padding: var(--space-xl);
+}
+
+.competitors-table-wrapper {
+  overflow-x: auto;
+}
+
+.competitors-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.competitors-table th {
+  text-align: left;
+  padding: var(--space-md);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.competitors-table td {
+  padding: var(--space-md);
+  border-bottom: 1px solid rgba(var(--accent-primary-rgb), 0.05);
+  color: var(--text-secondary);
+}
+
+.competitors-table tr:hover td {
+  background: rgba(var(--accent-primary-rgb), 0.03);
+}
+
+.competitor-row--ours td {
+  color: var(--text-bright);
+  background: rgba(var(--accent-primary-rgb), 0.06);
+}
+
+.comp-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.comp-badge {
+  color: var(--accent-warning);
+  font-size: 0.8rem;
+}
+
+.comp-category {
+  font-size: var(--font-size-xs);
+}
+
+.comp-score-bar {
+  position: relative;
+  width: 120px;
+  height: 20px;
+  background: rgba(var(--accent-primary-rgb), 0.08);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.comp-score-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  border-radius: var(--radius-sm);
+  transition: width 1s ease-out;
+}
+
+.competitor-row--ours .comp-score-fill {
+  background: linear-gradient(90deg, var(--accent-secondary), #00ffcc);
+}
+
+.comp-score-text {
+  position: absolute;
+  top: 50%;
+  right: var(--space-sm);
+  transform: translateY(-50%);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+.comp-share {
+  font-weight: 600;
+}
+
+.comp-trend {
+  font-weight: 700;
+  font-size: var(--font-size-md);
+}
+
+.comp-trend--up {
+  color: var(--accent-secondary);
+}
+
+.comp-trend--stable {
+  color: var(--text-muted);
+}
+
+/* ─── Opportunities ─────────────────────────────────────────────── */
+.opportunities-section {
+  padding: var(--space-xl);
+}
+
+.opportunities-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.opportunity-card {
+  padding: var(--space-lg);
+  background: rgba(var(--accent-primary-rgb), 0.03);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(var(--accent-primary-rgb), 0.08);
+  transition: all var(--transition-base);
+}
+
+.opportunity-card:hover {
+  border-color: rgba(var(--accent-primary-rgb), 0.2);
+  background: rgba(var(--accent-primary-rgb), 0.06);
+}
+
+.opportunity-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-sm);
+}
+
+.opportunity-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-bright);
+}
+
+.opportunity-desc {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-md);
+  line-height: 1.5;
+}
+
+.opportunity-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+}
+
+.opportunity-impact {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 1;
+}
+
+.opportunity-meta-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.opportunity-impact-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(var(--accent-primary-rgb), 0.1);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  max-width: 200px;
+}
+
+.opportunity-impact-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  border-radius: var(--radius-full);
+}
+
+.opportunity-impact-value {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--accent-primary);
+  min-width: 24px;
+}
+
+.opportunity-effort {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.opportunity-effort strong {
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+/* ─── Responsive ────────────────────────────────────────────────── */
+@media (max-width: 800px) {
+  .swot-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-bar-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-xs);
+  }
+
+  .metric-bar-label {
+    width: auto;
+  }
+}

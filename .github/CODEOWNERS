@@ -1,0 +1,14 @@
+# Owners of the core orchestration engine
+/orchestrator/ @nexus-digital
+
+# Dashboard ownership
+/dashboard/ @nexus-digital
+
+# Prompts require careful review
+/prompts/ @nexus-digital
+
+# Configuration changes are critical
+/shared-workspace/_config/ @nexus-digital
+
+# CI/CD pipeline
+/.github/ @nexus-digital
