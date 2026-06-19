@@ -158,8 +158,8 @@ export default function PropostasModule({
       setAiStatus('local');
       setAiMessage(
         cloudSync?.configured
-          ? 'Base local criada. Entre na nuvem para usar o OpenRouter.'
-          : 'Base local criada. Configure o Supabase para usar o OpenRouter.',
+          ? 'Base local criada. Entre na nuvem para usar a IA on-line.'
+          : 'Base local criada. Configure o Supabase para usar a IA on-line.',
       );
       return;
     }
@@ -173,7 +173,9 @@ export default function PropostasModule({
       });
       handleFieldChange(wizardStep, result.text);
       setAiStatus('success');
-      setAiMessage(`Texto gerado pelo OpenRouter${result.model ? ` com ${result.model}` : ''}. Revise antes de enviar.`);
+      const providerLabel = result.provider === 'openrouter' ? 'OpenRouter' : 'OpenAI';
+      const providerArticle = result.provider === 'openrouter' ? 'pelo' : 'pela';
+      setAiMessage(`Texto gerado ${providerArticle} ${providerLabel}${result.model ? ` com ${result.model}` : ''}. Revise antes de enviar.`);
     } catch (error) {
       setAiStatus('error');
       setAiMessage(error?.message || 'Não foi possível gerar o texto agora.');

@@ -1,6 +1,7 @@
 import { withSupabase } from 'npm:@supabase/server@^1';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENAI_URL = 'https://api.openai.com/v1/responses';
 const ALLOWED_SECTIONS = new Set(['objetivos', 'justificativa', 'metodologia']);
 const SECTION_INSTRUCTIONS: Record<string, string> = {
   objetivos: 'Escreva um objetivo geral e de três a cinco objetivos específicos, claros, verificáveis e coerentes com o projeto.',
@@ -110,6 +111,26 @@ const extractText = (payload: Record<string, unknown>) => {
     .trim();
 };
 
+const extractOpenAIText = (payload: Record<string, unknown>) => {
+  if (typeof payload.output_text === 'string') return payload.output_text.trim();
+  const output = Array.isArray(payload.output) ? payload.output : [];
+
+  return output
+    .flatMap((item) => {
+      if (!item || typeof item !== 'object') return [];
+      const content = (item as Record<string, unknown>).content;
+      return Array.isArray(content) ? content : [];
+    })
+    .map(part => (
+      part && typeof part === 'object'
+        ? cleanText((part as Record<string, unknown>).text, 20000)
+        : ''
+    ))
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+};
+
 export default {
   fetch: withSupabase({ auth: 'user' }, async (request) => {
     if (request.method !== 'POST') {
@@ -137,12 +158,23 @@ export default {
       return jsonResponse({ error: 'Seção não permitida para geração com IA.' }, 400);
     }
 
-    const apiKey = Deno.env.get('OPENROUTER_API_KEY')?.trim();
+    const configuredProvider = Deno.env.get('AI_PROVIDER')?.trim().toLowerCase();
+    const openAIKey = Deno.env.get('OPENAI_API_KEY')?.trim();
+    const openRouterKey = Deno.env.get('OPENROUTER_API_KEY')?.trim();
+    const provider = configuredProvider || (openAIKey ? 'openai' : 'openrouter');
+
+    if (!['openai', 'openrouter'].includes(provider)) {
+      return jsonResponse({ error: 'O provedor de IA configurado não é válido.' }, 503);
+    }
+
+    const apiKey = provider === 'openai' ? openAIKey : openRouterKey;
     if (!apiKey) {
       return jsonResponse({ error: 'A IA ainda não foi configurada pelo administrador.' }, 503);
     }
 
-    const model = Deno.env.get('OPENROUTER_MODEL')?.trim() || 'openrouter/auto';
+    const model = provider === 'openai'
+      ? Deno.env.get('OPENAI_MODEL')?.trim() || 'gpt-5.4-mini'
+      : Deno.env.get('OPENROUTER_MODEL')?.trim() || 'openrouter/auto';
     const siteUrl = Deno.env.get('OPENROUTER_SITE_URL')?.trim()
       || 'https://gasdswrgfsdwg.github.io/nexus-ai-orchestrator/';
     const appName = Deno.env.get('OPENROUTER_APP_NAME')?.trim() || 'Nexus Editais';
@@ -173,23 +205,37 @@ export default {
     ].join('\n');
 
     try {
-      const upstream = await fetch(OPENROUTER_URL, {
+      const isOpenAI = provider === 'openai';
+      const upstream = await fetch(isOpenAI ? OPENAI_URL : OPENROUTER_URL, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': siteUrl,
-          'X-OpenRouter-Title': appName,
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: 0.45,
-          max_tokens: 900,
-        }),
+        headers: isOpenAI
+          ? {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          }
+          : {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': siteUrl,
+            'X-OpenRouter-Title': appName,
+          },
+        body: JSON.stringify(isOpenAI
+          ? {
+            model,
+            instructions: systemPrompt,
+            input: userPrompt,
+            max_output_tokens: 900,
+            store: false,
+          }
+          : {
+            model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            temperature: 0.45,
+            max_tokens: 900,
+          }),
         signal: controller.signal,
       });
 
@@ -203,7 +249,7 @@ export default {
         }, status);
       }
 
-      const text = extractText(payload);
+      const text = isOpenAI ? extractOpenAIText(payload) : extractText(payload);
       if (!text) {
         return jsonResponse({ error: 'O provedor de IA retornou uma resposta vazia.' }, 502);
       }
@@ -211,6 +257,7 @@ export default {
       return jsonResponse({
         text: text.slice(0, 20000),
         model: cleanText(payload.model, 160) || model,
+        provider,
       });
     } catch (error) {
       const timedOut = error instanceof DOMException && error.name === 'AbortError';

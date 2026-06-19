@@ -86,5 +86,6 @@ export const generateProjectSection = async ({ section, proposal, edital }) => {
   return {
     text,
     model: cleanText(data?.model, 160),
+    provider: cleanText(data?.provider, 40),
   };
 };

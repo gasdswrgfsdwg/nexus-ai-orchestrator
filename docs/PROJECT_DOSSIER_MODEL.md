@@ -99,7 +99,7 @@ Para continuar em outra IA, prefira o JSON para edicao estruturada e o Markdown 
 
 ## Escrita assistida por IA
 
-As secoes `objetivos`, `justificativa` e `metodologia` podem ser geradas ou revisadas pelo OpenRouter. A chamada passa pela Supabase Edge Function autenticada `generate-project-text`; a chave do provedor nunca entra no bundle publico.
+As secoes `objetivos`, `justificativa` e `metodologia` podem ser geradas ou revisadas pela OpenAI ou pelo OpenRouter. A chamada passa pela Supabase Edge Function autenticada `generate-project-text`; a chave do provedor nunca entra no bundle publico. A integracao OpenAI usa a Responses API com armazenamento desativado para cada geracao (`store: false`).
 
 O contexto enviado inclui identificacao editorial, ideia central, sinopse, territorio, publico-alvo, metas e cronograma. Dados pessoais da equipe, proponente, responsavel e contatos nao sao enviados. Sem Supabase configurado ou sem sessao autenticada, o painel mantem uma base local para nao bloquear o fluxo principal.
 
