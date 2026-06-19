@@ -4,6 +4,7 @@ import EditaisModule from './components/EditaisModule';
 import PropostasModule from './components/PropostasModule';
 import ProjetosModule from './components/ProjetosModule';
 import PosAprovacaoModule from './components/PosAprovacaoModule';
+import useWorkspaceSync from './hooks/useWorkspaceSync';
 import { flushSync } from 'react-dom';
 
 import { 
@@ -18,7 +19,7 @@ import './modules.css';
 
 const WORKSPACE_STORAGE_KEY = 'nexus-editais-workspace-v1';
 const VALID_TABS = ['editais', 'propostas', 'kanban', 'pos-aprovacao'];
-const VALID_WIZARD_STEPS = ['resumo', 'objetivos', 'justificativa', 'metodologia', 'cronograma', 'orcamento'];
+const VALID_WIZARD_STEPS = ['resumo', 'objetivos', 'justificativa', 'metodologia', 'metas', 'equipe', 'cronograma', 'orcamento'];
 
 const getRequestedValue = (parameter, allowedValues) => {
   if (typeof window === 'undefined') return null;
@@ -63,6 +64,44 @@ export default function App({ appBridge }) {
   const [currentFilterCategory, setCurrentFilterCategory] = useState(appBridge ? appBridge.state.currentFilterCategory : 'todas');
   const [currentSearchTerm, setCurrentSearchTerm] = useState(appBridge ? appBridge.state.currentSearchTerm : '');
   const [errors, setErrors] = useState(appBridge ? appBridge.state.errors : {});
+
+  const applyCloudWorkspace = React.useCallback((workspace) => {
+    if (!workspace || typeof workspace !== 'object') return;
+    if (VALID_TABS.includes(workspace.activeTab)) setActiveTab(workspace.activeTab);
+    if (Array.isArray(workspace.editais)) setEditais(workspace.editais);
+    if (workspace.userProfile && typeof workspace.userProfile === 'object') setUserProfile(workspace.userProfile);
+    if (workspace.proposals && typeof workspace.proposals === 'object') setProposals(workspace.proposals);
+    if (Array.isArray(workspace.projects)) setProjects(workspace.projects);
+    if (VALID_WIZARD_STEPS.includes(workspace.activeWizardStep)) setActiveWizardStep(workspace.activeWizardStep);
+    if (workspace.activeProposalEditalId) setActiveProposalEditalId(workspace.activeProposalEditalId);
+    if (workspace.posAprovacao && typeof workspace.posAprovacao === 'object') setPosAprovacao(workspace.posAprovacao);
+  }, []);
+
+  const workspaceSnapshot = React.useMemo(() => ({
+    activeTab,
+    editais,
+    userProfile,
+    proposals,
+    projects,
+    activeWizardStep,
+    activeProposalEditalId,
+    posAprovacao,
+  }), [
+    activeProposalEditalId,
+    activeTab,
+    activeWizardStep,
+    editais,
+    posAprovacao,
+    projects,
+    proposals,
+    userProfile,
+  ]);
+
+  const cloudSync = useWorkspaceSync({
+    workspace: workspaceSnapshot,
+    applyWorkspace: applyCloudWorkspace,
+    disabled: Boolean(appBridge),
+  });
 
   // Register state synchronization callback on the testing bridge
   useEffect(() => {
@@ -142,6 +181,7 @@ export default function App({ appBridge }) {
             setActiveWizardStep={setActiveWizardStep}
             errors={errors}
             setErrors={setErrors}
+            cloudSync={cloudSync}
             appBridge={appBridge}
           />
         );
@@ -197,6 +237,7 @@ export default function App({ appBridge }) {
     <Navbar 
       activeTab={activeTab} 
       onTabChange={handleTabChange}
+      cloudSync={cloudSync}
       systemStats={{
         activeProjects: projects.length,
         profileCompleted: !!userProfile.area

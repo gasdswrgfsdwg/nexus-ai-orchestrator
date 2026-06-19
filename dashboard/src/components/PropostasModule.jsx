@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, FileJson, FileText, Sparkles } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Download, FileJson, FileText, Link2, Sparkles, Upload } from 'lucide-react';
 import {
   BUDGET_CATEGORY_OPTIONS,
   BUDGET_STATUS_OPTIONS,
@@ -7,22 +7,39 @@ import {
   FUNDING_SOURCE_OPTIONS,
   PROJECT_AREA_OPTIONS,
   PROJECT_STATUS_OPTIONS,
+  TEAM_LINK_OPTIONS,
+  TEAM_PAYMENT_OPTIONS,
+  TEAM_ROLE_OPTIONS,
+  TEAM_STATUS_OPTIONS,
   UNIT_OPTIONS,
+  buildAnuenciaMarkdown,
   buildProjectMarkdown,
+  buildTeamBudgetItem,
   createBudgetItem,
   createEmptyProposal,
+  createGoal,
+  createTeamMember,
   getBudgetSummary,
   getBudgetTotal,
   getDossierCompletion,
+  getDossierReadiness,
   normalizeBudgetItem,
+  normalizeGoal,
   normalizeProposal,
+  normalizeTeamMember,
 } from '../data/projectModel';
+import {
+  generateProjectSection,
+  getLocalProjectDraft,
+} from '../lib/projectAI';
 
 const WIZARD_STEPS = [
   { id: 'resumo', label: 'Resumo' },
   { id: 'objetivos', label: 'Objetivos' },
   { id: 'justificativa', label: 'Justificativa' },
   { id: 'metodologia', label: 'Metodologia' },
+  { id: 'metas', label: 'Metas' },
+  { id: 'equipe', label: 'Equipe' },
   { id: 'cronograma', label: 'Cronograma' },
   { id: 'orcamento', label: 'Financeiro' },
 ];
@@ -49,6 +66,7 @@ export default function PropostasModule({
   setActiveWizardStep,
   errors,
   setErrors,
+  cloudSync,
   appBridge
 }) {
   const proposalId = appBridge ? appBridge.state.activeProposalEditalId : activeProposalEditalId;
@@ -59,10 +77,20 @@ export default function PropostasModule({
   const edital = editais.find(item => item.id === proposalId) || { titulo: 'Nenhum edital selecionado' };
   const [documentContent, setDocumentContent] = React.useState('');
   const [savedAt, setSavedAt] = React.useState('');
+  const [anuenciaMemberId, setAnuenciaMemberId] = React.useState(null);
+  const [importError, setImportError] = React.useState('');
+  const [importStatus, setImportStatus] = React.useState('');
+  const [aiStatus, setAiStatus] = React.useState('idle');
+  const [aiMessage, setAiMessage] = React.useState('');
 
   const completion = getDossierCompletion(activeProposal);
+  const readiness = getDossierReadiness(activeProposal);
   const budgetTotal = getBudgetTotal(activeProposal.budget);
   const budgetSummary = getBudgetSummary(activeProposal.budget);
+  const teamPlannedTotal = activeProposal.team.reduce(
+    (total, member) => total + Number(normalizeTeamMember(member).valorPrevisto || 0),
+    0,
+  );
   const fileName = slugify(activeProposal.tituloProjeto || edital.titulo);
   const markdownContent = documentContent || buildProjectMarkdown({ proposal: activeProposal, edital });
   const jsonContent = JSON.stringify({
@@ -93,6 +121,8 @@ export default function PropostasModule({
   const handleProposalSelect = (event) => {
     const value = event.target.value;
     setDocumentContent('');
+    setAiStatus('idle');
+    setAiMessage('');
     if (appBridge) {
       appBridge.state.activeProposalEditalId = value;
       appBridge.render();
@@ -102,6 +132,8 @@ export default function PropostasModule({
   };
 
   const handleStepClick = (step) => {
+    setAiStatus('idle');
+    setAiMessage('');
     if (appBridge) {
       appBridge.state.activeWizardStep = step;
       appBridge.render();
@@ -118,13 +150,36 @@ export default function PropostasModule({
     handleFieldChange(wizardStep, event.target.value);
   };
 
-  const handleGenerateAI = () => {
-    const generatedByStep = {
-      objetivos: 'Texto gerado automaticamente por IA para a seção Objetivos: democratizar o acesso à cultura e à tecnologia, fortalecer agentes locais e ampliar a circulação da produção regional.',
-      justificativa: 'Texto gerado automaticamente por IA. Justificativa: o projeto responde à baixa oferta de formação e circulação cultural nos territórios atendidos, conectando repertório local, inclusão digital e geração de oportunidades.',
-      metodologia: 'Texto gerado automaticamente por IA para a seção Metodologia: a execução será organizada em diagnóstico, mobilização, oficinas práticas, acompanhamento de produção e mostra pública de resultados.',
-    };
-    handleFieldChange(wizardStep, generatedByStep[wizardStep] || '');
+  const handleGenerateAI = async () => {
+    setAiMessage('');
+
+    if (appBridge || !cloudSync?.configured || !cloudSync?.user) {
+      handleFieldChange(wizardStep, getLocalProjectDraft(wizardStep));
+      setAiStatus('local');
+      setAiMessage(
+        cloudSync?.configured
+          ? 'Base local criada. Entre na nuvem para usar a IA on-line.'
+          : 'Base local criada. Configure o Supabase para usar a IA on-line.',
+      );
+      return;
+    }
+
+    setAiStatus('loading');
+    try {
+      const result = await generateProjectSection({
+        section: wizardStep,
+        proposal: activeProposal,
+        edital,
+      });
+      handleFieldChange(wizardStep, result.text);
+      setAiStatus('success');
+      const providerLabel = result.provider === 'openrouter' ? 'OpenRouter' : 'OpenAI';
+      const providerArticle = result.provider === 'openrouter' ? 'pelo' : 'pela';
+      setAiMessage(`Texto gerado ${providerArticle} ${providerLabel}${result.model ? ` com ${result.model}` : ''}. Revise antes de enviar.`);
+    } catch (error) {
+      setAiStatus('error');
+      setAiMessage(error?.message || 'Não foi possível gerar o texto agora.');
+    }
   };
 
   const handleAddBudgetRow = () => {
@@ -220,8 +275,142 @@ export default function PropostasModule({
     if (changedItem && (field === 'inicio' || field === 'fim')) validateDates(changedItem);
   };
 
+  const handleAddTeamMember = () => {
+    updateProposal(current => ({
+      ...current,
+      team: [...current.team, createTeamMember(Date.now())],
+    }));
+  };
+
+  const handleDeleteTeamMember = (memberId) => {
+    if (anuenciaMemberId === memberId) setAnuenciaMemberId(null);
+    updateProposal(current => ({
+      ...current,
+      team: current.team.filter(member => member.id !== memberId),
+    }));
+  };
+
+  const handleTeamMemberChange = (memberId, field, value) => {
+    updateProposal(current => ({
+      ...current,
+      team: current.team.map(rawMember => {
+        if (rawMember.id !== memberId) return rawMember;
+        return { ...normalizeTeamMember(rawMember), [field]: value };
+      }),
+    }));
+  };
+
+  const handleTeamBudgetLinkChange = (memberId, value) => {
+    updateProposal(current => {
+      const linkedItem = current.budget.find(item => String(item.id) === String(value));
+      return {
+        ...current,
+        team: current.team.map(rawMember => (
+          rawMember.id === memberId
+            ? { ...normalizeTeamMember(rawMember), budgetItemId: linkedItem?.id ?? '' }
+            : rawMember
+        )),
+      };
+    });
+  };
+
+  const handleSyncTeamBudget = (memberId) => {
+    updateProposal(current => {
+      const member = normalizeTeamMember(current.team.find(item => item.id === memberId));
+      if (member.tipoRemuneracao === 'nao_remunerado') return current;
+
+      const existingItem = current.budget.find(item => String(item.id) === String(member.budgetItemId));
+      const budgetItemId = existingItem?.id ?? Date.now();
+      const syncedItem = buildTeamBudgetItem(member, existingItem, budgetItemId);
+      const budget = existingItem
+        ? current.budget.map(item => (item.id === existingItem.id ? syncedItem : item))
+        : [...current.budget, syncedItem];
+
+      return {
+        ...current,
+        budget,
+        team: current.team.map(rawMember => (
+          rawMember.id === memberId
+            ? { ...normalizeTeamMember(rawMember), budgetItemId }
+            : rawMember
+        )),
+      };
+    });
+  };
+
+  const handleGenerateAnuencia = (memberId) => {
+    setAnuenciaMemberId(memberId);
+  };
+
+  const handleAddGoal = () => {
+    updateProposal(current => ({
+      ...current,
+      goals: [...current.goals, createGoal(Date.now())],
+    }));
+  };
+
+  const handleDeleteGoal = (goalId) => {
+    updateProposal(current => ({
+      ...current,
+      goals: current.goals.filter(goal => goal.id !== goalId),
+    }));
+  };
+
+  const handleGoalChange = (goalId, field, value) => {
+    updateProposal(current => ({
+      ...current,
+      goals: current.goals.map(rawGoal => {
+        if (rawGoal.id !== goalId) return rawGoal;
+        const goal = normalizeGoal(rawGoal);
+        return { ...goal, [field]: field === 'quantidade' ? Number(value) : value };
+      }),
+    }));
+  };
+
   const handleGenerateDocument = () => {
     setDocumentContent(buildProjectMarkdown({ proposal: activeProposal, edital }));
+  };
+
+  const applyImportedProject = (project) => {
+    const targetId = project?.editalId || proposalId;
+    const normalized = normalizeProposal(project, targetId);
+    if (appBridge) {
+      appBridge.state.proposals[targetId] = normalized;
+      appBridge.state.activeProposalEditalId = targetId;
+      appBridge.render();
+    } else {
+      setProposals(prev => ({ ...prev, [targetId]: normalized }));
+      setActiveProposalEditalId(targetId);
+    }
+    setDocumentContent('');
+    setAnuenciaMemberId(null);
+    setImportError('');
+    setImportStatus(`Dossiê importado: ${normalized.tituloProjeto || targetId}`);
+  };
+
+  const handleImportJson = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result));
+        const project = parsed && typeof parsed === 'object' && parsed.project ? parsed.project : parsed;
+        if (!project || typeof project !== 'object' || Array.isArray(project)) {
+          throw new Error('formato inválido');
+        }
+        applyImportedProject(project);
+      } catch {
+        setImportStatus('');
+        setImportError('Arquivo JSON inválido. Use um arquivo gerado pelo botão "Exportar dados".');
+      }
+    };
+    reader.onerror = () => {
+      setImportStatus('');
+      setImportError('Não foi possível ler o arquivo selecionado.');
+    };
+    reader.readAsText(file);
   };
 
   const handleSaveProposal = () => {
@@ -231,6 +420,11 @@ export default function PropostasModule({
 
   const showTextEditor = ['objetivos', 'justificativa', 'metodologia'].includes(wizardStep);
   const editorValue = activeProposal[wizardStep] || '';
+  const anuenciaMember = activeProposal.team.find(member => member.id === anuenciaMemberId);
+  const anuenciaContent = anuenciaMember
+    ? buildAnuenciaMarkdown({ member: anuenciaMember, proposal: activeProposal, edital })
+    : '';
+  const anuenciaFileName = `anuencia-${slugify(anuenciaMember?.nome || 'integrante')}`;
 
   return (
     <div className="module-propostas">
@@ -274,6 +468,31 @@ export default function PropostasModule({
         <div className="wizard-content glass">
           {wizardStep === 'resumo' && (
             <div className="dossier-overview">
+              <section className="readiness-panel" aria-labelledby="readiness-title">
+                <div className="readiness-heading">
+                  <div>
+                    <span className="dossier-eyebrow">Revisão antes do envio</span>
+                    <h4 id="readiness-title">Prontidão para submissão</h4>
+                  </div>
+                  <strong>{readiness.percentage}%</strong>
+                </div>
+                <div className="readiness-progress" aria-label={`${readiness.completed} de ${readiness.total} verificações concluídas`}>
+                  <span style={{ width: `${readiness.percentage}%` }} />
+                </div>
+                <div className="readiness-list">
+                  {readiness.items.map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`readiness-item ${item.complete ? 'is-complete' : 'is-pending'}`}
+                      onClick={() => handleStepClick(item.step)}
+                    >
+                      {item.complete ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                      <span>{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
               <div className="dossier-form-grid">
                 <div className="form-group dossier-field-wide">
                   <label htmlFor="project-title">Título do projeto</label>
@@ -332,10 +551,223 @@ export default function PropostasModule({
                 value={editorValue}
                 onChange={handleTextChange}
               />
-              <button id="btn-generate-ai" onClick={handleGenerateAI}>
-                <Sparkles size={17} />
-                Gerar base com IA
-              </button>
+              <div className="ai-generation-actions">
+                <button id="btn-generate-ai" onClick={handleGenerateAI} disabled={aiStatus === 'loading'}>
+                  <Sparkles size={17} />
+                  {aiStatus === 'loading' ? 'Gerando...' : 'Gerar base com IA'}
+                </button>
+                {aiMessage && (
+                  <span
+                    id="ai-generation-status"
+                    className={aiStatus === 'error' ? 'error-message ai-generation-status' : 'dossier-save-status ai-generation-status'}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {aiMessage}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {wizardStep === 'metas' && (
+            <div className="goals-editor-container">
+              <div className="budget-heading">
+                <div>
+                  <h4>Metas e indicadores</h4>
+                  <span>{activeProposal.goals.length} metas cadastradas</span>
+                </div>
+              </div>
+              <p className="goals-hint">
+                Defina o que será entregue, como medir e a fonte de comprovação. Esse quadro acompanha a
+                execução do projeto e a prestação de contas.
+              </p>
+              <div className="budget-table-scroll">
+                <table className="goals-table">
+                  <thead>
+                    <tr>
+                      <th>Meta</th>
+                      <th>Indicador</th>
+                      <th>Quantidade</th>
+                      <th>Unidade</th>
+                      <th>Meio de verificação</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeProposal.goals.map(rawGoal => {
+                      const goal = normalizeGoal(rawGoal);
+                      return (
+                        <tr key={goal.id} data-row-id={goal.id}>
+                          <td><input type="text" className="goal-desc" value={goal.descricao} onChange={event => handleGoalChange(goal.id, 'descricao', event.target.value)} /></td>
+                          <td><input type="text" className="goal-indicator" value={goal.indicador} onChange={event => handleGoalChange(goal.id, 'indicador', event.target.value)} /></td>
+                          <td><input type="number" min="0" step="1" className="goal-qty" value={goal.quantidade} onChange={event => handleGoalChange(goal.id, 'quantidade', event.target.value)} /></td>
+                          <td><input type="text" className="goal-unit" value={goal.unidade} onChange={event => handleGoalChange(goal.id, 'unidade', event.target.value)} placeholder="pessoas, oficinas..." /></td>
+                          <td><input type="text" className="goal-verification" value={goal.meioVerificacao} onChange={event => handleGoalChange(goal.id, 'meioVerificacao', event.target.value)} placeholder="lista de presença, fotos..." /></td>
+                          <td><button className="btn-delete-goal-row" data-id={goal.id} onClick={() => handleDeleteGoal(goal.id)}>Excluir</button></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <button id="btn-add-goal-row" onClick={handleAddGoal}>Adicionar meta</button>
+            </div>
+          )}
+
+          {wizardStep === 'equipe' && (
+            <div className="team-editor-container">
+              <div className="budget-heading">
+                <div>
+                  <h4>Equipe do projeto</h4>
+                  <span>{activeProposal.team.length} integrantes cadastrados</span>
+                </div>
+                <div className="team-cost-summary">
+                  <span>Custo previsto da equipe</span>
+                  <strong>{money(teamPlannedTotal)}</strong>
+                </div>
+              </div>
+
+              {activeProposal.team.length === 0 && (
+                <p className="team-empty">
+                  Nenhum integrante na equipe. Clique em “Adicionar à equipe” para incluir uma pessoa,
+                  preencher os dados e gerar o termo de anuência dela.
+                </p>
+              )}
+
+              <div className="team-list">
+                {activeProposal.team.map(rawMember => {
+                  const member = normalizeTeamMember(rawMember);
+                  const linkedBudgetItem = activeProposal.budget.find(item => String(item.id) === String(member.budgetItemId));
+                  return (
+                    <div key={member.id} className="team-member-card glass" data-member-id={member.id}>
+                      <div className="team-member-grid">
+                        <div className="team-section-label">Papel e atuação</div>
+                        <div className="form-group team-field-wide">
+                          <label>Nome completo</label>
+                          <input className="team-member-nome" value={member.nome} onChange={event => handleTeamMemberChange(member.id, 'nome', event.target.value)} />
+                        </div>
+                        <div className="form-group">
+                          <label>Função no projeto</label>
+                          <select className="team-member-funcao" value={member.funcao} onChange={event => handleTeamMemberChange(member.id, 'funcao', event.target.value)}>
+                            {TEAM_ROLE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label>Vínculo</label>
+                          <select className="team-member-vinculo" value={member.vinculo} onChange={event => handleTeamMemberChange(member.id, 'vinculo', event.target.value)}>
+                            {TEAM_LINK_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label>Status de atuação</label>
+                          <select className="team-member-status" value={member.statusAtuacao} onChange={event => handleTeamMemberChange(member.id, 'statusAtuacao', event.target.value)}>
+                            {TEAM_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label>Carga horária semanal</label>
+                          <input type="number" min="0" step="1" className="team-member-workload" value={member.cargaHorariaSemanal} onChange={event => handleTeamMemberChange(member.id, 'cargaHorariaSemanal', Number(event.target.value))} />
+                        </div>
+                        <div className="form-group">
+                          <label>Início da atuação</label>
+                          <input type="date" className="team-member-start" value={member.inicioAtuacao} onChange={event => handleTeamMemberChange(member.id, 'inicioAtuacao', event.target.value)} />
+                        </div>
+                        <div className="form-group">
+                          <label>Fim da atuação</label>
+                          <input type="date" className="team-member-end" value={member.fimAtuacao} onChange={event => handleTeamMemberChange(member.id, 'fimAtuacao', event.target.value)} />
+                        </div>
+                        <div className="form-group team-field-wide">
+                          <label>Responsabilidades e entregas</label>
+                          <textarea className="team-member-responsibilities" rows="3" value={member.responsabilidades} onChange={event => handleTeamMemberChange(member.id, 'responsabilidades', event.target.value)} placeholder="Descreva o que esta pessoa fará e quais entregas estarão sob sua responsabilidade." />
+                        </div>
+
+                        <div className="team-section-label">Planejamento financeiro</div>
+                        <div className="form-group">
+                          <label>Forma de remuneração</label>
+                          <select className="team-member-payment" value={member.tipoRemuneracao} onChange={event => handleTeamMemberChange(member.id, 'tipoRemuneracao', event.target.value)}>
+                            {TEAM_PAYMENT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label>Custo total previsto</label>
+                          <input type="number" min="0" step="0.01" className="team-member-cost" value={member.valorPrevisto} disabled={member.tipoRemuneracao === 'nao_remunerado'} onChange={event => handleTeamMemberChange(member.id, 'valorPrevisto', Number(event.target.value))} />
+                        </div>
+                        <div className="form-group team-field-wide">
+                          <label>Rubrica financeira vinculada</label>
+                          <select className="team-member-budget-link" value={String(member.budgetItemId || '')} onChange={event => handleTeamBudgetLinkChange(member.id, event.target.value)}>
+                            <option value="">Sem vínculo financeiro</option>
+                            {activeProposal.budget.map(item => (
+                              <option key={item.id} value={String(item.id)}>{item.descricao || 'Item sem descrição'} — {money(item.valor)}</option>
+                            ))}
+                          </select>
+                          <span className={`team-budget-state ${linkedBudgetItem ? 'is-linked' : ''}`}>
+                            {linkedBudgetItem ? 'Custo vinculado sem duplicação' : 'Vincule uma rubrica existente ou crie uma pelo botão abaixo'}
+                          </span>
+                        </div>
+
+                        <div className="team-section-label">Dados e anuência</div>
+                        <div className="form-group">
+                          <label>CPF</label>
+                          <input className="team-member-cpf" value={member.cpf} onChange={event => handleTeamMemberChange(member.id, 'cpf', event.target.value)} />
+                        </div>
+                        <div className="form-group">
+                          <label>RG</label>
+                          <input className="team-member-rg" value={member.rg} onChange={event => handleTeamMemberChange(member.id, 'rg', event.target.value)} />
+                        </div>
+                        <div className="form-group">
+                          <label>Cidade</label>
+                          <input className="team-member-cidade" value={member.cidade} onChange={event => handleTeamMemberChange(member.id, 'cidade', event.target.value)} />
+                        </div>
+                        <div className="form-group">
+                          <label>E-mail</label>
+                          <input type="email" className="team-member-email" value={member.email} onChange={event => handleTeamMemberChange(member.id, 'email', event.target.value)} />
+                        </div>
+                        <div className="form-group">
+                          <label>Telefone</label>
+                          <input className="team-member-telefone" value={member.telefone} onChange={event => handleTeamMemberChange(member.id, 'telefone', event.target.value)} />
+                        </div>
+                        <div className="form-group">
+                          <label>Data da anuência</label>
+                          <input type="date" className="team-member-data" value={member.dataAnuencia} onChange={event => handleTeamMemberChange(member.id, 'dataAnuencia', event.target.value)} />
+                        </div>
+                        <div className="form-group team-anuencia-field">
+                          <label className="team-checkbox">
+                            <input type="checkbox" className="team-member-anuencia" checked={member.anuencia} onChange={event => handleTeamMemberChange(member.id, 'anuencia', event.target.checked)} />
+                            Anuência registrada
+                          </label>
+                        </div>
+                      </div>
+                      <div className="team-member-actions">
+                        <button className="btn-sync-team-budget secondary-action" disabled={member.tipoRemuneracao === 'nao_remunerado'} title={member.tipoRemuneracao === 'nao_remunerado' ? 'Selecione uma forma de remuneração para criar a rubrica' : 'Cria ou atualiza uma única rubrica no planejamento financeiro'} onClick={() => handleSyncTeamBudget(member.id)}>
+                          <Link2 size={16} />
+                          {linkedBudgetItem ? 'Atualizar financeiro' : 'Vincular ao financeiro'}
+                        </button>
+                        <button className="btn-generate-anuencia secondary-action" onClick={() => handleGenerateAnuencia(member.id)}>
+                          <FileText size={16} />
+                          Gerar anuência
+                        </button>
+                        <button className="btn-delete-team-member" data-id={member.id} onClick={() => handleDeleteTeamMember(member.id)}>Excluir</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button id="btn-add-team-member" onClick={handleAddTeamMember}>Adicionar à equipe</button>
+
+              {anuenciaMember && (
+                <div className="anuencia-panel glass">
+                  <div className="anuencia-panel-header">
+                    <h4>Termo de anuência — {anuenciaMember.nome || 'integrante'}</h4>
+                    <a className="dossier-export-link" href={`data:text/markdown;charset=utf-8,${encodeURIComponent(anuenciaContent)}`} download={`${anuenciaFileName}.md`}>
+                      <Download size={16} />
+                      Baixar anuência
+                    </a>
+                  </div>
+                  <pre id="anuencia-output" className="dossier-document-output">{anuenciaContent}</pre>
+                </div>
+              )}
             </div>
           )}
 
@@ -474,7 +906,15 @@ export default function PropostasModule({
             <FileJson size={17} />
             Exportar dados
           </a>
+          <label className="dossier-export-link dossier-import-link" htmlFor="import-json-input">
+            <Upload size={17} />
+            Importar dados
+            <input id="import-json-input" type="file" accept="application/json,.json" onChange={handleImportJson} hidden />
+          </label>
         </div>
+
+        {importStatus && <div className="dossier-save-status dossier-import-status" id="import-status-msg">{importStatus}</div>}
+        {importError && <div className="error-message dossier-import-error" id="import-error-msg">{importError}</div>}
 
         {documentContent && <pre id="dossier-document-output" className="dossier-document-output">{documentContent}</pre>}
       </div>
