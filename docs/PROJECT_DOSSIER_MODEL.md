@@ -63,6 +63,13 @@ A lista `team` guarda os integrantes do projeto. Cada integrante possui:
 | `nome` | Nome completo | Maria Souza |
 | `funcao` | Papel no projeto | `coordenacao`, `producao`, `oficineiro` |
 | `vinculo` | Condicao no projeto | `proponente`, `contratado`, `voluntario` |
+| `responsabilidades` | Entregas e atribuicoes da pessoa | Producao executiva e relatorios |
+| `statusAtuacao` | Situacao na equipe | `previsto`, `confirmado`, `em_atividade`, `concluido`, `desligado` |
+| `cargaHorariaSemanal` | Dedicacao estimada por semana | 20 |
+| `inicioAtuacao` / `fimAtuacao` | Periodo de participacao | `2026-08-01` / `2026-12-15` |
+| `tipoRemuneracao` | Forma do pagamento | `nao_remunerado`, `valor_total`, `mensal`, `hora`, `diaria`, `servico` |
+| `valorPrevisto` | Custo total planejado da pessoa | 15000 |
+| `budgetItemId` | Rubrica ligada no plano financeiro | 1720000000000 |
 | `cpf` | CPF | 123.456.789-00 |
 | `rg` | Documento de identidade | 1.234.567 |
 | `cidade` | Cidade de residencia | Marilandia |
@@ -72,6 +79,8 @@ A lista `team` guarda os integrantes do projeto. Cada integrante possui:
 | `dataAnuencia` | Data da anuencia | `2026-08-15` |
 
 `normalizeTeamMember()` preenche os valores padrao e preserva campos desconhecidos de dados antigos.
+
+O botao "Vincular ao financeiro" cria uma unica rubrica de categoria `equipe` e grava o ID em `budgetItemId`. Os proximos acionamentos atualizam a mesma rubrica. Tambem e possivel selecionar uma rubrica financeira existente. Assim, equipe e financeiro compartilham a referencia do custo sem somar uma copia separada ao total do projeto.
 
 `buildAnuenciaMarkdown({ member, proposal, edital })` gera um Termo de Anuencia e Autorizacao de Participacao ja preenchido com os dados da pessoa e do projeto, pronto para baixar em Markdown. No painel, cada integrante tem o botao "Gerar anuencia" na etapa Equipe do dossie.
 
@@ -102,7 +111,6 @@ Essa persistencia e local ao navegador e ao aparelho. Para mover o projeto entre
 
 1. Importar um JSON exportado para restaurar um dossie. **Implementado** (botao "Importar dados" no rodape do dossie); aceita o JSON exportado (`{ project }`) ou um objeto de projeto cru e preserva campos desconhecidos via `normalizeProposal`.
 2. Versionar revisoes do texto e do orcamento.
-3. Equipe ja implementada (com Termo de Anuencia); ainda faltam metas, indicadores e documentos anexos.
+3. Equipe, Termo de Anuencia, metas e indicadores ja implementados; ainda faltam documentos anexos.
 4. Sincronizar com um backend autenticado quando houver necessidade multiusuario.
 5. Gerar PDF e DOCX a partir do mesmo modelo canonico (inclusive da anuencia).
-

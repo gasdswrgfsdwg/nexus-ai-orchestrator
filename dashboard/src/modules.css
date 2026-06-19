@@ -670,8 +670,51 @@
   gap: 12px;
 }
 
+.team-cost-summary {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.team-cost-summary span {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.team-cost-summary strong {
+  color: var(--text-bright);
+  font-size: 1rem;
+}
+
+.team-section-label {
+  grid-column: 1 / -1;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
 .team-field-wide {
   grid-column: 1 / -1;
+}
+
+.team-member-responsibilities {
+  min-height: 82px;
+  resize: vertical;
+}
+
+.team-budget-state {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+}
+
+.team-budget-state.is-linked {
+  color: var(--accent-success);
 }
 
 .team-checkbox {
@@ -694,6 +737,11 @@
   flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-end;
+}
+
+.team-member-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .module-propostas .btn-delete-team-member {

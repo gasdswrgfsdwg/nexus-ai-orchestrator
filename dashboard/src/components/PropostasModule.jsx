@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, FileJson, FileText, Sparkles, Upload } from 'lucide-react';
+import { Download, FileJson, FileText, Link2, Sparkles, Upload } from 'lucide-react';
 import {
   BUDGET_CATEGORY_OPTIONS,
   BUDGET_STATUS_OPTIONS,
@@ -8,10 +8,13 @@ import {
   PROJECT_AREA_OPTIONS,
   PROJECT_STATUS_OPTIONS,
   TEAM_LINK_OPTIONS,
+  TEAM_PAYMENT_OPTIONS,
   TEAM_ROLE_OPTIONS,
+  TEAM_STATUS_OPTIONS,
   UNIT_OPTIONS,
   buildAnuenciaMarkdown,
   buildProjectMarkdown,
+  buildTeamBudgetItem,
   createBudgetItem,
   createEmptyProposal,
   createGoal,
@@ -75,6 +78,10 @@ export default function PropostasModule({
   const completion = getDossierCompletion(activeProposal);
   const budgetTotal = getBudgetTotal(activeProposal.budget);
   const budgetSummary = getBudgetSummary(activeProposal.budget);
+  const teamPlannedTotal = activeProposal.team.reduce(
+    (total, member) => total + Number(normalizeTeamMember(member).valorPrevisto || 0),
+    0,
+  );
   const fileName = slugify(activeProposal.tituloProjeto || edital.titulo);
   const markdownContent = documentContent || buildProjectMarkdown({ proposal: activeProposal, edital });
   const jsonContent = JSON.stringify({
@@ -255,6 +262,44 @@ export default function PropostasModule({
         return { ...normalizeTeamMember(rawMember), [field]: value };
       }),
     }));
+  };
+
+  const handleTeamBudgetLinkChange = (memberId, value) => {
+    updateProposal(current => {
+      const linkedItem = current.budget.find(item => String(item.id) === String(value));
+      return {
+        ...current,
+        team: current.team.map(rawMember => (
+          rawMember.id === memberId
+            ? { ...normalizeTeamMember(rawMember), budgetItemId: linkedItem?.id ?? '' }
+            : rawMember
+        )),
+      };
+    });
+  };
+
+  const handleSyncTeamBudget = (memberId) => {
+    updateProposal(current => {
+      const member = normalizeTeamMember(current.team.find(item => item.id === memberId));
+      if (member.tipoRemuneracao === 'nao_remunerado') return current;
+
+      const existingItem = current.budget.find(item => String(item.id) === String(member.budgetItemId));
+      const budgetItemId = existingItem?.id ?? Date.now();
+      const syncedItem = buildTeamBudgetItem(member, existingItem, budgetItemId);
+      const budget = existingItem
+        ? current.budget.map(item => (item.id === existingItem.id ? syncedItem : item))
+        : [...current.budget, syncedItem];
+
+      return {
+        ...current,
+        budget,
+        team: current.team.map(rawMember => (
+          rawMember.id === memberId
+            ? { ...normalizeTeamMember(rawMember), budgetItemId }
+            : rawMember
+        )),
+      };
+    });
   };
 
   const handleGenerateAnuencia = (memberId) => {
@@ -504,6 +549,10 @@ export default function PropostasModule({
                   <h4>Equipe do projeto</h4>
                   <span>{activeProposal.team.length} integrantes cadastrados</span>
                 </div>
+                <div className="team-cost-summary">
+                  <span>Custo previsto da equipe</span>
+                  <strong>{money(teamPlannedTotal)}</strong>
+                </div>
               </div>
 
               {activeProposal.team.length === 0 && (
@@ -516,9 +565,11 @@ export default function PropostasModule({
               <div className="team-list">
                 {activeProposal.team.map(rawMember => {
                   const member = normalizeTeamMember(rawMember);
+                  const linkedBudgetItem = activeProposal.budget.find(item => String(item.id) === String(member.budgetItemId));
                   return (
                     <div key={member.id} className="team-member-card glass" data-member-id={member.id}>
                       <div className="team-member-grid">
+                        <div className="team-section-label">Papel e atuação</div>
                         <div className="form-group team-field-wide">
                           <label>Nome completo</label>
                           <input className="team-member-nome" value={member.nome} onChange={event => handleTeamMemberChange(member.id, 'nome', event.target.value)} />
@@ -535,6 +586,54 @@ export default function PropostasModule({
                             {TEAM_LINK_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                           </select>
                         </div>
+                        <div className="form-group">
+                          <label>Status de atuação</label>
+                          <select className="team-member-status" value={member.statusAtuacao} onChange={event => handleTeamMemberChange(member.id, 'statusAtuacao', event.target.value)}>
+                            {TEAM_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label>Carga horária semanal</label>
+                          <input type="number" min="0" step="1" className="team-member-workload" value={member.cargaHorariaSemanal} onChange={event => handleTeamMemberChange(member.id, 'cargaHorariaSemanal', Number(event.target.value))} />
+                        </div>
+                        <div className="form-group">
+                          <label>Início da atuação</label>
+                          <input type="date" className="team-member-start" value={member.inicioAtuacao} onChange={event => handleTeamMemberChange(member.id, 'inicioAtuacao', event.target.value)} />
+                        </div>
+                        <div className="form-group">
+                          <label>Fim da atuação</label>
+                          <input type="date" className="team-member-end" value={member.fimAtuacao} onChange={event => handleTeamMemberChange(member.id, 'fimAtuacao', event.target.value)} />
+                        </div>
+                        <div className="form-group team-field-wide">
+                          <label>Responsabilidades e entregas</label>
+                          <textarea className="team-member-responsibilities" rows="3" value={member.responsabilidades} onChange={event => handleTeamMemberChange(member.id, 'responsabilidades', event.target.value)} placeholder="Descreva o que esta pessoa fará e quais entregas estarão sob sua responsabilidade." />
+                        </div>
+
+                        <div className="team-section-label">Planejamento financeiro</div>
+                        <div className="form-group">
+                          <label>Forma de remuneração</label>
+                          <select className="team-member-payment" value={member.tipoRemuneracao} onChange={event => handleTeamMemberChange(member.id, 'tipoRemuneracao', event.target.value)}>
+                            {TEAM_PAYMENT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label>Custo total previsto</label>
+                          <input type="number" min="0" step="0.01" className="team-member-cost" value={member.valorPrevisto} disabled={member.tipoRemuneracao === 'nao_remunerado'} onChange={event => handleTeamMemberChange(member.id, 'valorPrevisto', Number(event.target.value))} />
+                        </div>
+                        <div className="form-group team-field-wide">
+                          <label>Rubrica financeira vinculada</label>
+                          <select className="team-member-budget-link" value={String(member.budgetItemId || '')} onChange={event => handleTeamBudgetLinkChange(member.id, event.target.value)}>
+                            <option value="">Sem vínculo financeiro</option>
+                            {activeProposal.budget.map(item => (
+                              <option key={item.id} value={String(item.id)}>{item.descricao || 'Item sem descrição'} — {money(item.valor)}</option>
+                            ))}
+                          </select>
+                          <span className={`team-budget-state ${linkedBudgetItem ? 'is-linked' : ''}`}>
+                            {linkedBudgetItem ? 'Custo vinculado sem duplicação' : 'Vincule uma rubrica existente ou crie uma pelo botão abaixo'}
+                          </span>
+                        </div>
+
+                        <div className="team-section-label">Dados e anuência</div>
                         <div className="form-group">
                           <label>CPF</label>
                           <input className="team-member-cpf" value={member.cpf} onChange={event => handleTeamMemberChange(member.id, 'cpf', event.target.value)} />
@@ -567,6 +666,10 @@ export default function PropostasModule({
                         </div>
                       </div>
                       <div className="team-member-actions">
+                        <button className="btn-sync-team-budget secondary-action" disabled={member.tipoRemuneracao === 'nao_remunerado'} title={member.tipoRemuneracao === 'nao_remunerado' ? 'Selecione uma forma de remuneração para criar a rubrica' : 'Cria ou atualiza uma única rubrica no planejamento financeiro'} onClick={() => handleSyncTeamBudget(member.id)}>
+                          <Link2 size={16} />
+                          {linkedBudgetItem ? 'Atualizar financeiro' : 'Vincular ao financeiro'}
+                        </button>
                         <button className="btn-generate-anuencia secondary-action" onClick={() => handleGenerateAnuencia(member.id)}>
                           <FileText size={16} />
                           Gerar anuência

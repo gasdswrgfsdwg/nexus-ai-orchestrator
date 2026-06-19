@@ -93,6 +93,23 @@ export const TEAM_LINK_OPTIONS = [
   { value: 'parceiro', label: 'Parceiro(a) institucional' },
 ];
 
+export const TEAM_STATUS_OPTIONS = [
+  { value: 'previsto', label: 'Previsto' },
+  { value: 'confirmado', label: 'Confirmado' },
+  { value: 'em_atividade', label: 'Em atividade' },
+  { value: 'concluido', label: 'Participação concluída' },
+  { value: 'desligado', label: 'Desligado do projeto' },
+];
+
+export const TEAM_PAYMENT_OPTIONS = [
+  { value: 'nao_remunerado', label: 'Não remunerado' },
+  { value: 'valor_total', label: 'Valor total' },
+  { value: 'mensal', label: 'Mensal' },
+  { value: 'hora', label: 'Por hora' },
+  { value: 'diaria', label: 'Por diária' },
+  { value: 'servico', label: 'Por serviço / entrega' },
+];
+
 export const createBudgetItem = (id = Date.now()) => ({
   id,
   descricao: '',
@@ -127,6 +144,14 @@ export const createTeamMember = (id = Date.now()) => ({
   nome: '',
   funcao: 'coordenacao',
   vinculo: 'contratado',
+  responsabilidades: '',
+  statusAtuacao: 'previsto',
+  cargaHorariaSemanal: 0,
+  inicioAtuacao: '',
+  fimAtuacao: '',
+  tipoRemuneracao: 'nao_remunerado',
+  valorPrevisto: 0,
+  budgetItemId: '',
   cpf: '',
   rg: '',
   cidade: '',
@@ -139,8 +164,37 @@ export const createTeamMember = (id = Date.now()) => ({
 export const normalizeTeamMember = (member = {}) => ({
   ...createTeamMember(member.id ?? Date.now()),
   ...member,
+  cargaHorariaSemanal: Number(member.cargaHorariaSemanal ?? 0),
+  valorPrevisto: Number(member.valorPrevisto ?? 0),
   anuencia: Boolean(member.anuencia),
 });
+
+const teamPaymentUnit = {
+  valor_total: 'servico',
+  mensal: 'mes',
+  hora: 'hora',
+  diaria: 'diaria',
+  servico: 'servico',
+};
+
+export const buildTeamBudgetItem = (member, existingItem = null, id = Date.now()) => {
+  const person = normalizeTeamMember(member);
+  const item = existingItem ? normalizeBudgetItem(existingItem) : createBudgetItem(id);
+  const role = optionLabel(TEAM_ROLE_OPTIONS, person.funcao);
+  const value = Number(person.valorPrevisto || 0);
+
+  return {
+    ...item,
+    id: existingItem?.id ?? id,
+    descricao: `Equipe - ${person.nome || role}`,
+    categoria: 'equipe',
+    unidadeMedida: teamPaymentUnit[person.tipoRemuneracao] || 'servico',
+    quantidade: 1,
+    valorUnitario: value,
+    valor: value,
+    frequencia: person.tipoRemuneracao === 'mensal' ? 'mensal' : 'unica',
+  };
+};
 
 export const createGoal = (id = Date.now()) => ({
   id,
@@ -233,8 +287,8 @@ export const buildProjectMarkdown = ({ proposal, edital }) => {
   const goals = dossier.goals.map(normalizeGoal);
   const title = dossier.tituloProjeto || edital?.titulo || 'Projeto sem título';
   const teamRows = team.length > 0
-    ? team.map(member => `| ${escapeTableCell(member.nome) || '-'} | ${optionLabel(TEAM_ROLE_OPTIONS, member.funcao)} | ${optionLabel(TEAM_LINK_OPTIONS, member.vinculo)} | ${escapeTableCell(member.cpf) || '-'} | ${member.anuencia ? 'Registrada' : 'Pendente'} |`).join('\n')
-    : '| Nenhum integrante cadastrado | - | - | - | - |';
+    ? team.map(member => `| ${escapeTableCell(member.nome) || '-'} | ${optionLabel(TEAM_ROLE_OPTIONS, member.funcao)} | ${optionLabel(TEAM_LINK_OPTIONS, member.vinculo)} | ${optionLabel(TEAM_STATUS_OPTIONS, member.statusAtuacao)} | ${member.cargaHorariaSemanal || '-'} | ${escapeTableCell(member.responsabilidades) || '-'} | ${money(member.valorPrevisto)} | ${member.anuencia ? 'Registrada' : 'Pendente'} |`).join('\n')
+    : '| Nenhum integrante cadastrado | - | - | - | - | - | - | - |';
   const goalRows = goals.length > 0
     ? goals.map(goal => `| ${escapeTableCell(goal.descricao) || '-'} | ${escapeTableCell(goal.indicador) || '-'} | ${goal.quantidade} | ${escapeTableCell(goal.unidade) || '-'} | ${escapeTableCell(goal.meioVerificacao) || '-'} |`).join('\n')
     : '| Nenhuma meta cadastrada | - | - | - | - |';
@@ -286,8 +340,8 @@ ${goalRows}
 
 ## Equipe
 
-| Integrante | Função | Vínculo | CPF | Anuência |
-| --- | --- | --- | --- | --- |
+| Integrante | Função | Vínculo | Status | Horas/semana | Responsabilidades | Custo previsto | Anuência |
+| --- | --- | --- | --- | ---: | --- | ---: | --- |
 ${teamRows}
 
 ## Cronograma
@@ -323,6 +377,10 @@ export const buildAnuenciaMarkdown = ({ member, proposal, edital }) => {
   const vinculo = optionLabel(TEAM_LINK_OPTIONS, person.vinculo);
   const cidade = person.cidade || dossier.territorio || 'Cidade';
   const contato = [person.email, person.telefone].filter(Boolean).join(' · ') || 'Não informado';
+  const periodo = person.inicioAtuacao || person.fimAtuacao
+    ? `${formatBrDate(person.inicioAtuacao)} a ${formatBrDate(person.fimAtuacao)}`
+    : 'Conforme o cronograma do projeto';
+  const responsabilidades = person.responsabilidades || 'Conforme o plano de trabalho e as orientações da coordenação do projeto';
 
   return `# Termo de Anuência e Autorização de Participação
 
@@ -333,6 +391,10 @@ export const buildAnuenciaMarkdown = ({ member, proposal, edital }) => {
 Eu, **${blankField(person.nome)}**, portador(a) do CPF nº ${blankField(person.cpf)} e do documento de identidade (RG) nº ${blankField(person.rg)}, residente em ${blankField(person.cidade || dossier.territorio)}, declaro para os devidos fins que tenho pleno conhecimento do projeto **${projeto}** e **ANUO** com a minha participação na equipe, na função de **${funcao}**, na condição de **${vinculo}**.
 
 Declaro estar ciente das atividades, do cronograma e das responsabilidades relativas à minha função, bem como autorizo o uso do meu nome e dos dados aqui informados para fins de inscrição, contratação, execução e prestação de contas do projeto, nos termos do edital e da legislação aplicável.
+
+**Responsabilidades:** ${responsabilidades}
+
+**Período de atuação:** ${periodo}${person.cargaHorariaSemanal ? `, com carga horária estimada de ${person.cargaHorariaSemanal} horas semanais` : ''}.
 
 **Contato:** ${contato}
 

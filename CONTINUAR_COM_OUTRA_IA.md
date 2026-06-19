@@ -23,12 +23,13 @@ Antes de alterar codigo, leia integralmente:
 - dashboard/tests/e2e/
 
 Contexto do produto:
-O Nexus Editais organiza descoberta de editais, escrita de projetos, submissao e pos-aprovacao. Cada proposta e um Dossie do Projeto com identificacao, ideia central, sinopse, objetivos, justificativa, metodologia, cronograma e planejamento financeiro configuravel.
+O Nexus Editais organiza descoberta de editais, escrita de projetos, submissao e pos-aprovacao. Cada proposta e um Dossie do Projeto com identificacao, ideia central, sinopse, objetivos, justificativa, metodologia, metas, equipe, cronograma e planejamento financeiro configuravel.
 
 Regras importantes:
 - Mantenha a interface em portugues do Brasil.
 - Preserve compatibilidade com os testes e com dados antigos.
 - O plano financeiro usa categoria, status, unidade de medida, quantidade, valor unitario, frequencia, mes, ano e fonte de recurso.
+- Cada integrante da equipe possui funcao, vinculo, responsabilidades, status, carga horaria, periodo, remuneracao e anuencia. `budgetItemId` liga o integrante a uma unica rubrica financeira e evita duplicar o custo.
 - A aplicacao publica e estatica no GitHub Pages.
 - Os dados preenchidos ficam no localStorage e podem ser exportados em Markdown e JSON.
 - Nao remova funcionalidades existentes nem altere IDs usados pelos testes sem atualizar e justificar os testes.
@@ -52,4 +53,3 @@ Minha proxima solicitacao e:
 - Codigo: branch `main`.
 - Testes principais: `npm run test:e2e`.
 - Build do painel: `cd dashboard` e `..\node_modules\.bin\vite.cmd build --configLoader runner`.
-

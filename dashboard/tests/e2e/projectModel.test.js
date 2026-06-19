@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildAnuenciaMarkdown,
   buildProjectMarkdown,
+  buildTeamBudgetItem,
   createBudgetItem,
   createGoal,
   createTeamMember,
@@ -71,23 +72,46 @@ describe('Project team and anuência', () => {
     expect(member.nome).toBe('');
     expect(member.funcao).toBe('coordenacao');
     expect(member.vinculo).toBe('contratado');
+    expect(member.statusAtuacao).toBe('previsto');
+    expect(member.tipoRemuneracao).toBe('nao_remunerado');
+    expect(member.valorPrevisto).toBe(0);
     expect(member.anuencia).toBe(false);
   });
 
   it('preserves unknown fields and coerces anuência when normalizing a member', () => {
-    const member = normalizeTeamMember({ id: 3, nome: 'Ana', anuencia: 1, campoLegado: 'manter' });
+    const member = normalizeTeamMember({ id: 3, nome: 'Ana', anuencia: 1, cargaHorariaSemanal: '20', valorPrevisto: '8000', campoLegado: 'manter' });
 
     expect(member.nome).toBe('Ana');
     expect(member.anuencia).toBe(true);
     expect(member.campoLegado).toBe('manter');
     expect(member.funcao).toBe('coordenacao');
+    expect(member.cargaHorariaSemanal).toBe(20);
+    expect(member.valorPrevisto).toBe(8000);
+  });
+
+  it('creates one finance item from the team cost and preserves its linked id', () => {
+    const member = normalizeTeamMember({
+      id: 3,
+      nome: 'Ana Souza',
+      funcao: 'producao',
+      tipoRemuneracao: 'mensal',
+      valorPrevisto: 12000,
+    });
+    const item = buildTeamBudgetItem(member, null, 99);
+
+    expect(item.id).toBe(99);
+    expect(item.descricao).toBe('Equipe - Ana Souza');
+    expect(item.categoria).toBe('equipe');
+    expect(item.unidadeMedida).toBe('mes');
+    expect(item.frequencia).toBe('mensal');
+    expect(item.valor).toBe(12000);
   });
 
   it('keeps a team array on the normalized proposal and in the markdown export', () => {
     const proposal = normalizeProposal({
       editalId: 'e1',
       tituloProjeto: 'Cultura em Rede',
-      team: [{ id: 1, nome: 'Maria Souza', funcao: 'producao', vinculo: 'contratado', cpf: '123.456.789-00', anuencia: true }],
+      team: [{ id: 1, nome: 'Maria Souza', funcao: 'producao', vinculo: 'contratado', statusAtuacao: 'confirmado', cargaHorariaSemanal: 20, responsabilidades: 'Produção executiva', valorPrevisto: 15000, cpf: '123.456.789-00', anuencia: true }],
     }, 'e1');
 
     expect(proposal.team).toHaveLength(1);
@@ -96,6 +120,8 @@ describe('Project team and anuência', () => {
     const markdown = buildProjectMarkdown({ proposal, edital: { titulo: 'Edital Cultura 2026' } });
     expect(markdown).toContain('## Equipe');
     expect(markdown).toContain('Maria Souza');
+    expect(markdown).toContain('Produção executiva');
+    expect(markdown).toContain('15.000,00');
     expect(markdown).toContain('Registrada');
   });
 
