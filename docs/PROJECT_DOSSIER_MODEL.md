@@ -97,6 +97,12 @@ O painel oferece dois formatos:
 
 Para continuar em outra IA, prefira o JSON para edicao estruturada e o Markdown para revisao editorial.
 
+## Escrita assistida por IA
+
+As secoes `objetivos`, `justificativa` e `metodologia` podem ser geradas ou revisadas pelo OpenRouter. A chamada passa pela Supabase Edge Function autenticada `generate-project-text`; a chave do provedor nunca entra no bundle publico.
+
+O contexto enviado inclui identificacao editorial, ideia central, sinopse, territorio, publico-alvo, metas e cronograma. Dados pessoais da equipe, proponente, responsavel e contatos nao sao enviados. Sem Supabase configurado ou sem sessao autenticada, o painel mantem uma base local para nao bloquear o fluxo principal.
+
 ## Prontidao para submissao
 
 `getDossierReadiness()` calcula sete verificacoes acionaveis: identificacao, texto tecnico, metas, equipe, anuencias, cronograma e financeiro. A etapa Resumo exibe o percentual e permite abrir diretamente a secao pendente. Esse indicador complementa `getDossierCompletion()`: preenchimento mede volume de dados; prontidao mede condicoes minimas para revisao e envio.

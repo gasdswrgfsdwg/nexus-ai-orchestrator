@@ -28,6 +28,10 @@ import {
   normalizeProposal,
   normalizeTeamMember,
 } from '../data/projectModel';
+import {
+  generateProjectSection,
+  getLocalProjectDraft,
+} from '../lib/projectAI';
 
 const WIZARD_STEPS = [
   { id: 'resumo', label: 'Resumo' },
@@ -62,6 +66,7 @@ export default function PropostasModule({
   setActiveWizardStep,
   errors,
   setErrors,
+  cloudSync,
   appBridge
 }) {
   const proposalId = appBridge ? appBridge.state.activeProposalEditalId : activeProposalEditalId;
@@ -75,6 +80,8 @@ export default function PropostasModule({
   const [anuenciaMemberId, setAnuenciaMemberId] = React.useState(null);
   const [importError, setImportError] = React.useState('');
   const [importStatus, setImportStatus] = React.useState('');
+  const [aiStatus, setAiStatus] = React.useState('idle');
+  const [aiMessage, setAiMessage] = React.useState('');
 
   const completion = getDossierCompletion(activeProposal);
   const readiness = getDossierReadiness(activeProposal);
@@ -114,6 +121,8 @@ export default function PropostasModule({
   const handleProposalSelect = (event) => {
     const value = event.target.value;
     setDocumentContent('');
+    setAiStatus('idle');
+    setAiMessage('');
     if (appBridge) {
       appBridge.state.activeProposalEditalId = value;
       appBridge.render();
@@ -123,6 +132,8 @@ export default function PropostasModule({
   };
 
   const handleStepClick = (step) => {
+    setAiStatus('idle');
+    setAiMessage('');
     if (appBridge) {
       appBridge.state.activeWizardStep = step;
       appBridge.render();
@@ -139,13 +150,34 @@ export default function PropostasModule({
     handleFieldChange(wizardStep, event.target.value);
   };
 
-  const handleGenerateAI = () => {
-    const generatedByStep = {
-      objetivos: 'Texto gerado automaticamente por IA para a seção Objetivos: democratizar o acesso à cultura e à tecnologia, fortalecer agentes locais e ampliar a circulação da produção regional.',
-      justificativa: 'Texto gerado automaticamente por IA. Justificativa: o projeto responde à baixa oferta de formação e circulação cultural nos territórios atendidos, conectando repertório local, inclusão digital e geração de oportunidades.',
-      metodologia: 'Texto gerado automaticamente por IA para a seção Metodologia: a execução será organizada em diagnóstico, mobilização, oficinas práticas, acompanhamento de produção e mostra pública de resultados.',
-    };
-    handleFieldChange(wizardStep, generatedByStep[wizardStep] || '');
+  const handleGenerateAI = async () => {
+    setAiMessage('');
+
+    if (appBridge || !cloudSync?.configured || !cloudSync?.user) {
+      handleFieldChange(wizardStep, getLocalProjectDraft(wizardStep));
+      setAiStatus('local');
+      setAiMessage(
+        cloudSync?.configured
+          ? 'Base local criada. Entre na nuvem para usar o OpenRouter.'
+          : 'Base local criada. Configure o Supabase para usar o OpenRouter.',
+      );
+      return;
+    }
+
+    setAiStatus('loading');
+    try {
+      const result = await generateProjectSection({
+        section: wizardStep,
+        proposal: activeProposal,
+        edital,
+      });
+      handleFieldChange(wizardStep, result.text);
+      setAiStatus('success');
+      setAiMessage(`Texto gerado pelo OpenRouter${result.model ? ` com ${result.model}` : ''}. Revise antes de enviar.`);
+    } catch (error) {
+      setAiStatus('error');
+      setAiMessage(error?.message || 'Não foi possível gerar o texto agora.');
+    }
   };
 
   const handleAddBudgetRow = () => {
@@ -517,10 +549,22 @@ export default function PropostasModule({
                 value={editorValue}
                 onChange={handleTextChange}
               />
-              <button id="btn-generate-ai" onClick={handleGenerateAI}>
-                <Sparkles size={17} />
-                Gerar base com IA
-              </button>
+              <div className="ai-generation-actions">
+                <button id="btn-generate-ai" onClick={handleGenerateAI} disabled={aiStatus === 'loading'}>
+                  <Sparkles size={17} />
+                  {aiStatus === 'loading' ? 'Gerando...' : 'Gerar base com IA'}
+                </button>
+                {aiMessage && (
+                  <span
+                    id="ai-generation-status"
+                    className={aiStatus === 'error' ? 'error-message ai-generation-status' : 'dossier-save-status ai-generation-status'}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {aiMessage}
+                  </span>
+                )}
+              </div>
             </div>
           )}
 

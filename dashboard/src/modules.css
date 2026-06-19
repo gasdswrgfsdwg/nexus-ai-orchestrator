@@ -469,6 +469,28 @@
   overflow-x: auto;
 }
 
+.ai-generation-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ai-generation-actions #btn-generate-ai {
+  min-height: 40px;
+}
+
+.ai-generation-actions #btn-generate-ai:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.ai-generation-status {
+  flex: 1 1 260px;
+  margin: 0;
+  text-align: left;
+}
+
 .budget-table,
 .schedule-table,
 .goals-table {
@@ -1272,6 +1294,20 @@
 
   .wizard-footer {
     flex-direction: column;
+  }
+
+  .ai-generation-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ai-generation-actions #btn-generate-ai,
+  .ai-generation-status {
+    width: 100%;
+  }
+
+  .ai-generation-status {
+    flex-basis: auto;
   }
 
   .dossier-form-grid {

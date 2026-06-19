@@ -181,6 +181,7 @@ export default function App({ appBridge }) {
             setActiveWizardStep={setActiveWizardStep}
             errors={errors}
             setErrors={setErrors}
+            cloudSync={cloudSync}
             appBridge={appBridge}
           />
         );
