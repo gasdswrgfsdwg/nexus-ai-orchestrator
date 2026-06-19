@@ -276,6 +276,78 @@ export const getDossierCompletion = (proposal) => {
   return Math.round(((completedFields + structuralPoints) / (requiredFields.length + 2)) * 100);
 };
 
+export const getDossierReadiness = (proposal) => {
+  const dossier = normalizeProposal(proposal, proposal?.editalId);
+  const team = dossier.team.map(normalizeTeamMember);
+  const goals = dossier.goals.map(normalizeGoal);
+  const budget = dossier.budget.map(normalizeBudgetItem);
+  const hasText = value => String(value || '').trim().length > 0;
+  const identificationFields = [
+    dossier.tituloProjeto,
+    dossier.ideiaCentral,
+    dossier.sinopse,
+    dossier.proponente,
+    dossier.responsavel,
+    dossier.territorio,
+    dossier.publicoAlvo,
+  ];
+  const technicalFields = [dossier.objetivos, dossier.justificativa, dossier.metodologia];
+
+  const items = [
+    {
+      id: 'identificacao',
+      label: 'Identificação e resumo completos',
+      step: 'resumo',
+      complete: identificationFields.every(hasText),
+    },
+    {
+      id: 'texto_tecnico',
+      label: 'Texto técnico preenchido',
+      step: 'objetivos',
+      complete: technicalFields.every(hasText),
+    },
+    {
+      id: 'metas',
+      label: 'Metas com indicadores definidos',
+      step: 'metas',
+      complete: goals.length > 0 && goals.every(goal => hasText(goal.descricao) && hasText(goal.indicador)),
+    },
+    {
+      id: 'equipe',
+      label: 'Equipe com responsabilidades',
+      step: 'equipe',
+      complete: team.length > 0 && team.every(member => hasText(member.nome) && hasText(member.responsabilidades)),
+    },
+    {
+      id: 'anuencias',
+      label: 'Anuências da equipe registradas',
+      step: 'equipe',
+      complete: team.length > 0 && team.every(member => member.anuencia),
+    },
+    {
+      id: 'cronograma',
+      label: 'Cronograma com datas',
+      step: 'cronograma',
+      complete: dossier.schedule.length > 0 && dossier.schedule.every(item => hasText(item.tarefa) && item.inicio && item.fim),
+    },
+    {
+      id: 'financeiro',
+      label: 'Plano financeiro estruturado',
+      step: 'orcamento',
+      complete: budget.length > 0 && budget.every(item => hasText(item.descricao) && Number(item.valor) > 0),
+    },
+  ];
+  const completed = items.filter(item => item.complete).length;
+
+  return {
+    items,
+    completed,
+    total: items.length,
+    percentage: Math.round((completed / items.length) * 100),
+    blockers: items.filter(item => !item.complete),
+  };
+};
+
 const optionLabel = (options, value) => options.find(option => option.value === value)?.label || value || '-';
 const escapeTableCell = (value) => String(value ?? '').replaceAll('|', '\\|').replaceAll('\n', ' ');
 const money = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });

@@ -8,6 +8,7 @@ import {
   createTeamMember,
   getBudgetTotal,
   getDossierCompletion,
+  getDossierReadiness,
   normalizeBudgetItem,
   normalizeGoal,
   normalizeProposal,
@@ -190,5 +191,43 @@ describe('Project import / migração', () => {
     expect(imported.team[0].papelCustomizado).toBe('manter');
     expect(imported.budget[0].valor).toBe(1000);
     expect(imported.tituloProjeto).toBe('Projeto Importado');
+  });
+});
+
+describe('Submission readiness', () => {
+  it('returns actionable blockers for an incomplete dossier', () => {
+    const readiness = getDossierReadiness(normalizeProposal({
+      editalId: 'e1',
+      tituloProjeto: 'Projeto em preparação',
+    }, 'e1'));
+
+    expect(readiness.total).toBe(7);
+    expect(readiness.percentage).toBeLessThan(50);
+    expect(readiness.blockers.map(item => item.id)).toContain('metas');
+    expect(readiness.blockers.map(item => item.id)).toContain('equipe');
+    expect(readiness.blockers.map(item => item.id)).toContain('financeiro');
+  });
+
+  it('marks a complete dossier as ready for submission', () => {
+    const readiness = getDossierReadiness(normalizeProposal({
+      editalId: 'e1',
+      tituloProjeto: 'Projeto completo',
+      ideiaCentral: 'Ideia',
+      sinopse: 'Sinopse',
+      proponente: 'Instituto',
+      responsavel: 'Maria',
+      territorio: 'Colatina',
+      publicoAlvo: 'Jovens',
+      objetivos: 'Objetivos',
+      justificativa: 'Justificativa',
+      metodologia: 'Metodologia',
+      goals: [{ id: 1, descricao: 'Realizar oficinas', indicador: 'Oficinas realizadas' }],
+      team: [{ id: 1, nome: 'Ana', responsabilidades: 'Coordenar', anuencia: true }],
+      schedule: [{ id: 1, tarefa: 'Execução', inicio: '2026-08-01', fim: '2026-09-01' }],
+      budget: [{ id: 1, descricao: 'Coordenação', valor: 1000 }],
+    }, 'e1'));
+
+    expect(readiness.percentage).toBe(100);
+    expect(readiness.blockers).toHaveLength(0);
   });
 });

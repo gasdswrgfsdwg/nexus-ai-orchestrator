@@ -7,6 +7,7 @@ import {
   PanelLeftOpen,
   Radar,
 } from 'lucide-react';
+import CloudSyncMenu from './CloudSyncMenu';
 
 const NAV_ITEMS = [
   { id: 'editais', label: 'Descoberta', mobileLabel: 'Descoberta', icon: Radar },
@@ -15,7 +16,7 @@ const NAV_ITEMS = [
   { id: 'pos-aprovacao', label: 'Pós-Aprovação', mobileLabel: 'Aprovados', icon: BadgeCheck },
 ];
 
-export default function Navbar({ activeTab, onTabChange, children, systemStats }) {
+export default function Navbar({ activeTab, onTabChange, children, systemStats, cloudSync }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -144,6 +145,7 @@ export default function Navbar({ activeTab, onTabChange, children, systemStats }
           </div>
 
           <div className="header-right">
+            <CloudSyncMenu cloudSync={cloudSync} />
             <div className="header-live-indicator">
               <span className="live-dot"></span>
               <span className="live-text">ONLINE</span>

@@ -31,8 +31,8 @@ cd dashboard
 
 ## Leitura antes de alterar o dossie
 
+- `CONTEXTO_PARA_QUALQUER_IA.md`
 - `docs/PROJECT_DOSSIER_MODEL.md`
 - `CONTINUAR_COM_OUTRA_IA.md`
 - `dashboard/src/data/projectModel.js`
 - `dashboard/src/components/PropostasModule.jsx`
-

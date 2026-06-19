@@ -97,6 +97,10 @@ O painel oferece dois formatos:
 
 Para continuar em outra IA, prefira o JSON para edicao estruturada e o Markdown para revisao editorial.
 
+## Prontidao para submissao
+
+`getDossierReadiness()` calcula sete verificacoes acionaveis: identificacao, texto tecnico, metas, equipe, anuencias, cronograma e financeiro. A etapa Resumo exibe o percentual e permite abrir diretamente a secao pendente. Esse indicador complementa `getDossierCompletion()`: preenchimento mede volume de dados; prontidao mede condicoes minimas para revisao e envio.
+
 ## Persistencia
 
 O workspace e salvo no navegador com a chave:
@@ -106,6 +110,8 @@ nexus-editais-workspace-v1
 ```
 
 Essa persistencia e local ao navegador e ao aparelho. Para mover o projeto entre computadores, navegadores ou IAs, exporte o JSON.
+
+Quando o Supabase esta configurado, o mesmo workspace e salvo em `public.user_workspaces`, uma linha por usuario autenticado. O modo local permanece obrigatorio e funciona sem conexao. A migracao canonica esta em `supabase/migrations/20260619164937_create_user_workspaces.sql`.
 
 ## Proximas evolucoes recomendadas
 

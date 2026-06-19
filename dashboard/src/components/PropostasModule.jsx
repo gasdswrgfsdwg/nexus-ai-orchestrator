@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, FileJson, FileText, Link2, Sparkles, Upload } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Download, FileJson, FileText, Link2, Sparkles, Upload } from 'lucide-react';
 import {
   BUDGET_CATEGORY_OPTIONS,
   BUDGET_STATUS_OPTIONS,
@@ -22,6 +22,7 @@ import {
   getBudgetSummary,
   getBudgetTotal,
   getDossierCompletion,
+  getDossierReadiness,
   normalizeBudgetItem,
   normalizeGoal,
   normalizeProposal,
@@ -76,6 +77,7 @@ export default function PropostasModule({
   const [importStatus, setImportStatus] = React.useState('');
 
   const completion = getDossierCompletion(activeProposal);
+  const readiness = getDossierReadiness(activeProposal);
   const budgetTotal = getBudgetTotal(activeProposal.budget);
   const budgetSummary = getBudgetSummary(activeProposal.budget);
   const teamPlannedTotal = activeProposal.team.reduce(
@@ -432,6 +434,31 @@ export default function PropostasModule({
         <div className="wizard-content glass">
           {wizardStep === 'resumo' && (
             <div className="dossier-overview">
+              <section className="readiness-panel" aria-labelledby="readiness-title">
+                <div className="readiness-heading">
+                  <div>
+                    <span className="dossier-eyebrow">Revisão antes do envio</span>
+                    <h4 id="readiness-title">Prontidão para submissão</h4>
+                  </div>
+                  <strong>{readiness.percentage}%</strong>
+                </div>
+                <div className="readiness-progress" aria-label={`${readiness.completed} de ${readiness.total} verificações concluídas`}>
+                  <span style={{ width: `${readiness.percentage}%` }} />
+                </div>
+                <div className="readiness-list">
+                  {readiness.items.map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`readiness-item ${item.complete ? 'is-complete' : 'is-pending'}`}
+                      onClick={() => handleStepClick(item.step)}
+                    >
+                      {item.complete ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                      <span>{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
               <div className="dossier-form-grid">
                 <div className="form-group dossier-field-wide">
                   <label htmlFor="project-title">Título do projeto</label>

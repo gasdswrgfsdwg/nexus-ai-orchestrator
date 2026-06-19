@@ -2,6 +2,7 @@
 
 ## Como transportar o contexto
 
+0. Leia `CONTEXTO_PARA_QUALQUER_IA.md`, que agora e o documento principal de arquitetura, Supabase e seguranca.
 1. Abra o dossie no painel e use `Exportar dados` para obter o JSON do projeto.
 2. Entregue a outra IA o repositorio ou o link do GitHub.
 3. Anexe o JSON exportado quando a tarefa envolver um projeto preenchido.
@@ -17,6 +18,7 @@ https://github.com/gasdswrgfsdwg/nexus-ai-orchestrator
 
 Antes de alterar codigo, leia integralmente:
 - AGENTS.md
+- CONTEXTO_PARA_QUALQUER_IA.md
 - docs/PROJECT_DOSSIER_MODEL.md
 - dashboard/src/data/projectModel.js
 - dashboard/src/components/PropostasModule.jsx
@@ -32,6 +34,7 @@ Regras importantes:
 - Cada integrante da equipe possui funcao, vinculo, responsabilidades, status, carga horaria, periodo, remuneracao e anuencia. `budgetItemId` liga o integrante a uma unica rubrica financeira e evita duplicar o custo.
 - A aplicacao publica e estatica no GitHub Pages.
 - Os dados preenchidos ficam no localStorage e podem ser exportados em Markdown e JSON.
+- O Supabase e opcional e nunca pode impedir o uso local. Use apenas chave publica no frontend e preserve as politicas RLS.
 - Nao remova funcionalidades existentes nem altere IDs usados pelos testes sem atualizar e justificar os testes.
 
 Se houver um arquivo JSON anexado, trate-o como a versao atual do projeto do usuario. Preserve todos os campos desconhecidos ao fazer migracoes.
