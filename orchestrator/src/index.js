@@ -27,6 +27,7 @@ import { GeminiAdapter } from './adapters/gemini-adapter.js';
 import { ClaudeAdapter } from './adapters/claude-adapter.js';
 import { ChatGPTAdapter } from './adapters/chatgpt-adapter.js';
 import { OllamaAdapter } from './adapters/ollama-adapter.js';
+import { OpenRouterAdapter } from './adapters/openrouter-adapter.js';
 
 // ─── Strategies ──────────────────────────────────────────────────────
 import { RoundRobinStrategy } from './strategies/round-robin.js';
@@ -83,6 +84,7 @@ const adapters = {
   claude: new ClaudeAdapter(),
   chatgpt: new ChatGPTAdapter({ workspacePath: SHARED_WORKSPACE }),
   ollama: new OllamaAdapter(),
+  openrouter: new OpenRouterAdapter(),
 };
 
 const ROUTING_AGENT_IDS = {
@@ -90,6 +92,7 @@ const ROUTING_AGENT_IDS = {
   claude: 'claude-code',
   chatgpt: 'chatgpt-desktop',
   ollama: 'ollama',
+  openrouter: 'openrouter',
 };
 let routingConfig = null;
 
