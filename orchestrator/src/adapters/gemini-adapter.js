@@ -84,7 +84,7 @@ export class GeminiAdapter {
     }
 
     if (this.#apiKey) {
-      return this.#executeViaRest(task.id, fullPrompt);
+      return this.#executeViaRest(fullPrompt);
     }
     return this.#executeViaCli(fullPrompt);
   }
@@ -112,13 +112,13 @@ export class GeminiAdapter {
       const timer = setTimeout(() => ac.abort(), 10_000);
       const res = await fetch(url, { signal: ac.signal });
       clearTimeout(timer);
-      return res.status < 500;
+      return res.ok;
     } catch {
       return false;
     }
   }
 
-  async #executeViaRest(taskId, prompt) {
+  async #executeViaRest(prompt) {
     const model = this.#model;
     const url = `${GEMINI_REST_BASE}/${model}:generateContent?key=${this.#apiKey}`;
 
@@ -126,33 +126,32 @@ export class GeminiAdapter {
     const timer = setTimeout(() => ac.abort(), this.#timeoutMs);
 
     const start = Date.now();
-    let res;
     try {
-      res = await fetch(url, {
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
         signal: ac.signal,
       });
+
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`Gemini REST error ${res.status}: ${body}`);
+      }
+
+      const json = await res.json();
+      const output = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+
+      return {
+        output,
+        model,
+        durationMs: Date.now() - start,
+        adapter: this.name,
+        source: 'rest',
+      };
     } finally {
       clearTimeout(timer);
     }
-
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Gemini REST error ${res.status}: ${body}`);
-    }
-
-    const json = await res.json();
-    const output = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-
-    return {
-      output,
-      model,
-      durationMs: Date.now() - start,
-      adapter: this.name,
-      source: 'rest',
-    };
   }
 
   // ─── CLI fallback ──────────────────────────────────────────────────

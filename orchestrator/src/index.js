@@ -6,6 +6,7 @@
  */
 
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,6 +35,15 @@ import { LoadBalanceStrategy } from './strategies/load-balance.js';
 
 // ─── Constants ───────────────────────────────────────────────────────
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load orchestrator/.env if present — no dependency needed
+try {
+  for (const line of readFileSync(path.resolve(__dirname, '..', '.env'), 'utf-8').split('\n')) {
+    const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)=(.*)$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
+  }
+} catch { /* .env not present — fine */ }
+
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const SHARED_WORKSPACE = process.env.SHARED_WORKSPACE
   || path.resolve(__dirname, '..', '..', 'shared-workspace');
@@ -478,12 +488,13 @@ app.get('/api/connection-check', async (_req, res) => {
     Object.entries(adapters).map(async ([name, adapter]) => {
       const startedAt = Date.now();
       try {
+        let timerId;
         const connected = await Promise.race([
           adapter.isAvailable(),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('timeout')), CHECK_TIMEOUT_MS),
-          ),
-        ]);
+          new Promise((_, reject) => {
+            timerId = setTimeout(() => reject(new Error('timeout')), CHECK_TIMEOUT_MS);
+          }),
+        ]).finally(() => clearTimeout(timerId));
         return { adapter: name, connected, latencyMs: Date.now() - startedAt, error: null };
       } catch (err) {
         return { adapter: name, connected: false, latencyMs: Date.now() - startedAt, error: err.message };
