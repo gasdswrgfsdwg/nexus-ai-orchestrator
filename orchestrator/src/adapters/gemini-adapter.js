@@ -1,29 +1,36 @@
 /**
  * @module adapters/gemini-adapter
- * @description Adapter for Google Gemini CLI. Invokes the `gemini` command-line
- * tool via child_process and returns structured results.
+ * @description Adapter for Google Gemini. Prefers the REST API when
+ * GEMINI_API_KEY is set; falls back to the `gemini` CLI otherwise.
  */
 
 import { spawn } from 'node:child_process';
+
+const GEMINI_REST_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+const DEFAULT_REST_MODEL = 'gemini-2.0-flash';
 
 /**
  * @typedef {Object} GeminiAdapterOptions
  * @property {string} [command='gemini']  - CLI command / path
  * @property {number} [timeoutMs=120000]  - Per-execution timeout
  * @property {string} [model]             - Model override (e.g. 'gemini-2.0-flash')
+ * @property {string} [apiKey]            - Google API key (falls back to GEMINI_API_KEY env)
  */
 
 /**
- * GeminiAdapter — wraps the Gemini CLI for use by the orchestrator.
- * Implements the standard adapter interface: { name, type, isAvailable(), execute(task), getStatus() }
+ * GeminiAdapter — wraps Google Gemini for the orchestrator.
+ * Uses the REST API when an API key is available, otherwise the CLI.
+ * Implements: { name, type, isAvailable(), execute(task), getStatus() }
  */
 export class GeminiAdapter {
   /** @type {string} */
   #command;
   /** @type {number} */
   #timeoutMs;
-  /** @type {string|null} */
+  /** @type {string} */
   #model;
+  /** @type {string|null} */
+  #apiKey;
   /** @type {boolean} */
   #lastCheckAvailable = false;
 
@@ -33,80 +40,56 @@ export class GeminiAdapter {
   constructor(options = {}) {
     this.#command = options.command || 'gemini';
     this.#timeoutMs = options.timeoutMs || 120_000;
-    this.#model = options.model || null;
+    this.#model = options.model || DEFAULT_REST_MODEL;
+    this.#apiKey = options.apiKey || process.env.GEMINI_API_KEY || null;
   }
 
-  /** @returns {string} Adapter display name */
-  get name() {
-    return 'gemini';
-  }
+  get name() { return 'gemini'; }
+  get type() { return 'gemini'; }
+  get capabilities() { return ['code', 'analysis', 'creative', 'chat', 'reasoning']; }
 
-  /** @returns {string} Adapter type identifier */
-  get type() {
-    return 'gemini';
-  }
-
-  /** @returns {string[]} Capabilities this adapter provides */
-  get capabilities() {
-    return ['code', 'analysis', 'creative', 'chat', 'reasoning'];
-  }
+  /** @returns {'rest'|'cli'} Active connection mode */
+  get mode() { return this.#apiKey ? 'rest' : 'cli'; }
 
   /**
-   * Check whether the Gemini CLI is installed and reachable.
+   * Returns true if the REST API key is set (fast check) or the CLI responds.
    * @returns {Promise<boolean>}
    */
   async isAvailable() {
-    try {
-      const result = await this.#runCommand([this.#command, '--version'], 10_000);
-      this.#lastCheckAvailable = result.exitCode === 0;
-    } catch {
-      this.#lastCheckAvailable = false;
+    if (this.#apiKey) {
+      this.#lastCheckAvailable = await this.#pingRestApi();
+    } else {
+      try {
+        const result = await this.#runCommand([this.#command, '--version'], 10_000);
+        this.#lastCheckAvailable = result.exitCode === 0;
+      } catch {
+        this.#lastCheckAvailable = false;
+      }
     }
     return this.#lastCheckAvailable;
   }
 
   /**
-   * Execute a task by invoking the Gemini CLI with the task prompt.
-   *
+   * Execute a task via REST API (if key set) or CLI.
    * @param {Object} task
    * @param {string} task.id
    * @param {string} task.prompt
    * @param {Object} [task.context]
-   * @returns {Promise<Object>} - { output, model, durationMs }
+   * @returns {Promise<Object>}
    */
   async execute(task) {
-    const args = [this.#command];
-
-    if (this.#model) {
-      args.push('--model', this.#model);
-    }
-
-    // Build the full prompt with optional context
     let fullPrompt = task.prompt;
     if (task.context && Object.keys(task.context).length > 0) {
       fullPrompt = `Context:\n${JSON.stringify(task.context, null, 2)}\n\nTask:\n${task.prompt}`;
     }
 
-    args.push('--prompt', fullPrompt);
-
-    const start = Date.now();
-    const result = await this.#runCommand(args, this.#timeoutMs);
-    const durationMs = Date.now() - start;
-
-    if (result.exitCode !== 0) {
-      throw new Error(`Gemini CLI exited with code ${result.exitCode}: ${result.stderr}`);
+    if (this.#apiKey) {
+      return this.#executeViaRest(task.id, fullPrompt);
     }
-
-    return {
-      output: result.stdout.trim(),
-      model: this.#model || 'default',
-      durationMs,
-      adapter: this.name,
-    };
+    return this.#executeViaCli(fullPrompt);
   }
 
   /**
-   * Return current adapter status for health monitoring.
    * @returns {Promise<Object>}
    */
   async getStatus() {
@@ -114,42 +97,99 @@ export class GeminiAdapter {
     return {
       adapter: this.name,
       available,
-      command: this.#command,
+      mode: this.mode,
       model: this.#model,
+      ...(this.mode === 'cli' ? { command: this.#command } : {}),
     };
   }
 
-  // ─── Private helpers ───────────────────────────────────────────────
+  // ─── REST API ──────────────────────────────────────────────────────
 
-  /**
-   * Spawn a process and collect stdout/stderr.
-   * @private
-   * @param {string[]} args - [command, ...flags]
-   * @param {number} timeoutMs
-   * @returns {Promise<{stdout: string, stderr: string, exitCode: number}>}
-   */
+  async #pingRestApi() {
+    try {
+      const url = `${GEMINI_REST_BASE}?key=${this.#apiKey}`;
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), 10_000);
+      const res = await fetch(url, { signal: ac.signal });
+      clearTimeout(timer);
+      return res.status < 500;
+    } catch {
+      return false;
+    }
+  }
+
+  async #executeViaRest(taskId, prompt) {
+    const model = this.#model;
+    const url = `${GEMINI_REST_BASE}/${model}:generateContent?key=${this.#apiKey}`;
+
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), this.#timeoutMs);
+
+    const start = Date.now();
+    let res;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        signal: ac.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Gemini REST error ${res.status}: ${body}`);
+    }
+
+    const json = await res.json();
+    const output = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+
+    return {
+      output,
+      model,
+      durationMs: Date.now() - start,
+      adapter: this.name,
+      source: 'rest',
+    };
+  }
+
+  // ─── CLI fallback ──────────────────────────────────────────────────
+
+  async #executeViaCli(prompt) {
+    const args = [this.#command];
+    if (this.#model) args.push('--model', this.#model);
+    args.push('--prompt', prompt);
+
+    const start = Date.now();
+    const result = await this.#runCommand(args, this.#timeoutMs);
+
+    if (result.exitCode !== 0) {
+      throw new Error(`Gemini CLI exited with code ${result.exitCode}: ${result.stderr}`);
+    }
+
+    return {
+      output: result.stdout.trim(),
+      model: this.#model,
+      durationMs: Date.now() - start,
+      adapter: this.name,
+      source: 'cli',
+    };
+  }
+
   #runCommand(args, timeoutMs) {
     return new Promise((resolve, reject) => {
       const [cmd, ...flags] = args;
-      const proc = spawn(cmd, flags, {
-        shell: true,
-        timeout: timeoutMs,
-        windowsHide: true,
-      });
+      const proc = spawn(cmd, flags, { shell: true, timeout: timeoutMs, windowsHide: true });
 
       let stdout = '';
       let stderr = '';
 
-      proc.stdout?.on('data', (chunk) => { stdout += chunk.toString(); });
-      proc.stderr?.on('data', (chunk) => { stderr += chunk.toString(); });
-
-      proc.on('close', (code) => {
-        resolve({ stdout, stderr, exitCode: code ?? 1 });
-      });
-
-      proc.on('error', (err) => {
-        reject(new Error(`Failed to spawn "${cmd}": ${err.message}`));
-      });
+      proc.stdout?.on('data', (c) => { stdout += c.toString(); });
+      proc.stderr?.on('data', (c) => { stderr += c.toString(); });
+      proc.on('close', (code) => resolve({ stdout, stderr, exitCode: code ?? 1 }));
+      proc.on('error', (err) => reject(new Error(`Failed to spawn "${cmd}": ${err.message}`)));
     });
   }
 }
