@@ -466,6 +466,47 @@ app.post('/api/adapters/detect', async (_req, res) => {
   res.json({ success: true, data: results });
 });
 
+/**
+ * GET /api/connection-check
+ * Verify live connectivity to each AI adapter in parallel.
+ * Returns per-adapter connected status, latency, and an overall summary.
+ */
+app.get('/api/connection-check', async (_req, res) => {
+  const CHECK_TIMEOUT_MS = 15_000;
+
+  const checks = await Promise.all(
+    Object.entries(adapters).map(async ([name, adapter]) => {
+      const startedAt = Date.now();
+      try {
+        const connected = await Promise.race([
+          adapter.isAvailable(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('timeout')), CHECK_TIMEOUT_MS),
+          ),
+        ]);
+        return { adapter: name, connected, latencyMs: Date.now() - startedAt, error: null };
+      } catch (err) {
+        return { adapter: name, connected: false, latencyMs: Date.now() - startedAt, error: err.message };
+      }
+    }),
+  );
+
+  const connectedCount = checks.filter((c) => c.connected).length;
+  const anyConnected = connectedCount > 0;
+
+  res.status(anyConnected ? 200 : 503).json({
+    success: anyConnected,
+    summary: {
+      total: checks.length,
+      connected: connectedCount,
+      disconnected: checks.length - connectedCount,
+      status: connectedCount === checks.length ? 'all_connected' : anyConnected ? 'partial' : 'none_connected',
+    },
+    adapters: checks,
+    checkedAt: new Date().toISOString(),
+  });
+});
+
 // ─── 404 handler ─────────────────────────────────────────────────────
 app.use((_req, res) => {
   res.status(404).json({
@@ -482,6 +523,7 @@ app.use((_req, res) => {
       'GET  /api/status',
       'GET  /api/adapters',
       'POST /api/adapters/detect',
+      'GET  /api/connection-check',
       'WS   /ws',
     ],
   });
