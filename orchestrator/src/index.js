@@ -6,6 +6,7 @@
  */
 
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -26,6 +27,7 @@ import { GeminiAdapter } from './adapters/gemini-adapter.js';
 import { ClaudeAdapter } from './adapters/claude-adapter.js';
 import { ChatGPTAdapter } from './adapters/chatgpt-adapter.js';
 import { OllamaAdapter } from './adapters/ollama-adapter.js';
+import { OpenRouterAdapter } from './adapters/openrouter-adapter.js';
 
 // ─── Strategies ──────────────────────────────────────────────────────
 import { RoundRobinStrategy } from './strategies/round-robin.js';
@@ -34,6 +36,15 @@ import { LoadBalanceStrategy } from './strategies/load-balance.js';
 
 // ─── Constants ───────────────────────────────────────────────────────
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load orchestrator/.env if present — no dependency needed
+try {
+  for (const line of readFileSync(path.resolve(__dirname, '..', '.env'), 'utf-8').split('\n')) {
+    const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)=(.*)$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
+  }
+} catch { /* .env not present — fine */ }
+
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const SHARED_WORKSPACE = process.env.SHARED_WORKSPACE
   || path.resolve(__dirname, '..', '..', 'shared-workspace');
@@ -73,6 +84,7 @@ const adapters = {
   claude: new ClaudeAdapter(),
   chatgpt: new ChatGPTAdapter({ workspacePath: SHARED_WORKSPACE }),
   ollama: new OllamaAdapter(),
+  openrouter: new OpenRouterAdapter(),
 };
 
 const ROUTING_AGENT_IDS = {
@@ -80,6 +92,7 @@ const ROUTING_AGENT_IDS = {
   claude: 'claude-code',
   chatgpt: 'chatgpt-desktop',
   ollama: 'ollama',
+  openrouter: 'openrouter',
 };
 let routingConfig = null;
 
@@ -466,6 +479,48 @@ app.post('/api/adapters/detect', async (_req, res) => {
   res.json({ success: true, data: results });
 });
 
+/**
+ * GET /api/connection-check
+ * Verify live connectivity to each AI adapter in parallel.
+ * Returns per-adapter connected status, latency, and an overall summary.
+ */
+app.get('/api/connection-check', async (_req, res) => {
+  const CHECK_TIMEOUT_MS = 15_000;
+
+  const checks = await Promise.all(
+    Object.entries(adapters).map(async ([name, adapter]) => {
+      const startedAt = Date.now();
+      try {
+        let timerId;
+        const connected = await Promise.race([
+          adapter.isAvailable(),
+          new Promise((_, reject) => {
+            timerId = setTimeout(() => reject(new Error('timeout')), CHECK_TIMEOUT_MS);
+          }),
+        ]).finally(() => clearTimeout(timerId));
+        return { adapter: name, connected, latencyMs: Date.now() - startedAt, error: null };
+      } catch (err) {
+        return { adapter: name, connected: false, latencyMs: Date.now() - startedAt, error: err.message };
+      }
+    }),
+  );
+
+  const connectedCount = checks.filter((c) => c.connected).length;
+  const anyConnected = connectedCount > 0;
+
+  res.status(anyConnected ? 200 : 503).json({
+    success: anyConnected,
+    summary: {
+      total: checks.length,
+      connected: connectedCount,
+      disconnected: checks.length - connectedCount,
+      status: connectedCount === checks.length ? 'all_connected' : anyConnected ? 'partial' : 'none_connected',
+    },
+    adapters: checks,
+    checkedAt: new Date().toISOString(),
+  });
+});
+
 // ─── 404 handler ─────────────────────────────────────────────────────
 app.use((_req, res) => {
   res.status(404).json({
@@ -482,6 +537,7 @@ app.use((_req, res) => {
       'GET  /api/status',
       'GET  /api/adapters',
       'POST /api/adapters/detect',
+      'GET  /api/connection-check',
       'WS   /ws',
     ],
   });
